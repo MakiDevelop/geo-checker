@@ -17,6 +17,7 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from app.i18n import get_translations
+from src.fetcher.ghost_fetcher import is_ghost_url
 from src.fetcher.html_fetcher import fetch_html
 from src.geo.geo_checker import check_geo
 from src.parser.content_parser import parse_content
@@ -187,9 +188,10 @@ def analyze(
     try:
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         result_id = uuid4().hex
+        draft_mode = is_ghost_url(url)
         html = fetch_html(url)
         result = parse_content(html, url)
-        result["geo"] = check_geo(result, html, url)
+        result["geo"] = check_geo(result, html, url, draft_mode=draft_mode)
         result["analysis_id"] = result_id
         result["created_at"] = datetime.now(UTC).isoformat()
         (RESULTS_DIR / f"{result_id}.json").write_text(
@@ -381,9 +383,10 @@ def compare_submit(
 
     for item in urls:
         try:
+            draft_mode = is_ghost_url(item["url"])
             html = fetch_html(item["url"])
             parsed = parse_content(html, item["url"])
-            geo = check_geo(parsed, html, item["url"])
+            geo = check_geo(parsed, html, item["url"], draft_mode=draft_mode)
             results[item["id"]] = {
                 "url": item["url"],
                 "geo": geo,

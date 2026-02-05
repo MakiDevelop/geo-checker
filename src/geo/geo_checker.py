@@ -172,6 +172,20 @@ def _ai_crawler_access(url: str, html: str) -> dict:
     }
 
 
+def _draft_mode_ai_access() -> dict:
+    """Return a neutral ai_access result for draft mode (no penalties)."""
+    return {
+        "robots_txt_found": False,
+        "gptbot": "unspecified",
+        "claudebot": "unspecified",
+        "perplexitybot": "unspecified",
+        "google_extended": "unspecified",
+        "meta_robots": {"content": "", "noindex": False, "nofollow": False},
+        "x_robots_tag": {"value": "", "noindex": False, "nofollow": False},
+        "notes": "Draft mode: accessibility checks skipped.",
+    }
+
+
 def _structural_diversity(components: dict) -> int:
     keys = ["heading_blocks", "paragraph_blocks", "list_blocks", "table_blocks"]
     return sum(1 for key in keys if components.get(key, 0) > 0)
@@ -794,7 +808,7 @@ def _calculate_geo_score(parsed: dict, ai_access: dict, blockers: list[str]) -> 
     }
 
 
-def _generate_summary(geo_score: dict, blockers: list[str], ai_access: dict, parsed: dict) -> dict:
+def _generate_summary(geo_score: dict, blockers: list[str], ai_access: dict, parsed: dict, draft_mode: bool = False) -> dict:
     """Generate a human-readable summary with priority recommendations."""
     issues = {
         "critical": [],
@@ -802,27 +816,28 @@ def _generate_summary(geo_score: dict, blockers: list[str], ai_access: dict, par
         "good": [],
     }
 
-    # Check critical issues
-    crawler_statuses = [
-        ai_access.get("gptbot"),
-        ai_access.get("claudebot"),
-        ai_access.get("perplexitybot"),
-        ai_access.get("google_extended"),
-    ]
-    blocked_crawlers = [name for name, status in zip(
-        ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"],
-        crawler_statuses
-    ) if status == "disallow"]
+    if not draft_mode:
+        # Check critical issues (skip in draft mode)
+        crawler_statuses = [
+            ai_access.get("gptbot"),
+            ai_access.get("claudebot"),
+            ai_access.get("perplexitybot"),
+            ai_access.get("google_extended"),
+        ]
+        blocked_crawlers = [name for name, status in zip(
+            ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"],
+            crawler_statuses
+        ) if status == "disallow"]
 
-    if blocked_crawlers:
-        issues["critical"].append({
-            "key": "crawlers_blocked",
-            "crawlers": blocked_crawlers,
-        })
+        if blocked_crawlers:
+            issues["critical"].append({
+                "key": "crawlers_blocked",
+                "crawlers": blocked_crawlers,
+            })
 
-    meta_robots = ai_access.get("meta_robots", {})
-    if meta_robots.get("noindex"):
-        issues["critical"].append({"key": "noindex_set"})
+        meta_robots = ai_access.get("meta_robots", {})
+        if meta_robots.get("noindex"):
+            issues["critical"].append({"key": "noindex_set"})
 
     # Check warnings
     schema_org = parsed.get("schema_org", {})
@@ -991,8 +1006,13 @@ def _get_priority_fixes(issues: dict, blockers: list[str], parsed: dict) -> list
     return fixes[:5]  # Return top 5 fixes
 
 
-def check_geo(parsed: dict, html: str, url: str) -> dict:
-    """Run v2.1.0 GEO checks with weighted scoring and extended metrics."""
+def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) -> dict:
+    """Run v2.1.0 GEO checks with weighted scoring and extended metrics.
+
+    Args:
+        draft_mode: When True, skip accessibility checks (robots.txt, noindex).
+                    Used for Ghost draft analysis where these metrics are irrelevant.
+    """
     components = parsed.get("content_surface_size", {}).get("components", {})
     stats = parsed.get("stats", {}).copy()
     content = parsed.get("content", {})
@@ -1011,16 +1031,22 @@ def check_geo(parsed: dict, html: str, url: str) -> dict:
     link_quality = _assess_link_quality(parsed)
     content_depth = _assess_content_depth(parsed)
 
-    ai_access = _ai_crawler_access(url, html)
-    geo_score = _calculate_geo_score(parsed, ai_access, blockers)
-    summary = _generate_summary(geo_score, blockers, ai_access, parsed)
+    if draft_mode:
+        # Draft mode: skip accessibility, give full marks
+        ai_access = _draft_mode_ai_access()
+        geo_score = _calculate_geo_score(parsed, ai_access, blockers=[])
+        summary = _generate_summary(geo_score, blockers, ai_access, parsed, draft_mode=True)
+    else:
+        ai_access = _ai_crawler_access(url, html)
+        geo_score = _calculate_geo_score(parsed, ai_access, blockers)
+        summary = _generate_summary(geo_score, blockers, ai_access, parsed)
 
     # Phase 3: Compute advanced metrics
     first_paragraph = _assess_first_paragraph(paragraphs)
     pronoun_issues = _detect_pronoun_issues(paragraphs)
     citation_potential = _calculate_citation_potential(parsed, qa_structure, link_quality)
 
-    return {
+    result = {
         "geo_score": geo_score,
         "summary": summary,
         "ai_crawler_access": ai_access,
@@ -1041,3 +1067,8 @@ def check_geo(parsed: dict, html: str, url: str) -> dict:
             "citation_potential": citation_potential,
         },
     }
+
+    if draft_mode:
+        result["draft_mode"] = True
+
+    return result

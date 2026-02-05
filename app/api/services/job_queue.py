@@ -10,6 +10,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from src.config.settings import settings
+from src.fetcher.ghost_fetcher import is_ghost_url
 from src.fetcher.html_fetcher import fetch_html
 from src.geo.geo_checker import check_geo
 from src.parser.content_parser import parse_content
@@ -71,13 +72,14 @@ class JobQueue:
 
         try:
             # Fetch HTML
+            draft_mode = is_ghost_url(job.url)
             html = fetch_html(job.url)
 
             # Parse content
             parsed = parse_content(html, job.url)
 
             # Run GEO analysis
-            geo = check_geo(parsed, html, job.url)
+            geo = check_geo(parsed, html, job.url, draft_mode=draft_mode)
 
             # Store result
             job.result = {
