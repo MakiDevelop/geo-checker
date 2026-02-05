@@ -27,6 +27,13 @@
           {% set schema_org = result.schema_org if result.schema_org is defined else {} %}
           {% set quotables = result.quotable_sentences if result.quotable_sentences is defined else [] %}
 
+          <!-- Draft Mode Banner -->
+          {% if geo and geo.draft_mode is defined and geo.draft_mode %}
+          <div class="draft-mode-banner">
+            Ghost Draft Mode — Content Only
+          </div>
+          {% endif %}
+
           <!-- Summary Dashboard -->
           {% if geo_score %}
           <div class="dashboard">
@@ -177,7 +184,8 @@
             </div>
           </div>
 
-          <!-- AI Crawler Access -->
+          <!-- AI Crawler Access (hidden in draft mode) -->
+          {% if not (geo and geo.draft_mode is defined and geo.draft_mode) %}
           <div class="section">
             <h2>
               {{ t["result.section.crawler"] }}
@@ -268,6 +276,7 @@
               <p>{{ t["crawler.unavailable"] }}</p>
             {% endif %}
           </div>
+          {% endif %}
 
           <!-- Schema.org Structured Data -->
           {% if schema_org and schema_org.types|length > 0 %}

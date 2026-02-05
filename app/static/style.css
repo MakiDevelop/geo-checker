@@ -747,6 +747,26 @@ details[open] summary {
   margin: 0 0 28px 0;
 }
 
+/* Draft Mode Banner */
+.draft-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.draft-mode-banner::before {
+  content: "\1F4DD";
+  font-size: 18px;
+}
+
 /* Error Banner */
 .error-banner {
   display: flex;
