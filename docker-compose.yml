@@ -7,13 +7,8 @@ services:
     memswap_limit: 2g
     volumes:
       - ./data:/app/data
-    # Ghost Admin API（草稿分析）
-    # environment:
-    #   - GHOST_URL=https://marketing.91app.com
-    #   - GHOST_ADMIN_API_KEY=id:secret
-    #   # [未來商業化] API Key 設定
-    #   - GEO_API_KEY_<NAME>=<key>:<tier>
-    #   # tier: free(10/min), standard(30/min), premium(100/min)
+    env_file:
+      - .env
     networks:
       - abd-network
     labels:
