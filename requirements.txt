@@ -24,6 +24,9 @@ playwright==1.57.0
 # Structured data extraction
 extruct==0.18.0
 
+# Ghost Admin API
+PyJWT==2.10.1
+
 # Development tools
 ruff==0.9.6
 cachetools==5.5.2

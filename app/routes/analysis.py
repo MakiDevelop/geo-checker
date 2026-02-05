@@ -198,8 +198,11 @@ def analyze(
         return RedirectResponse(url=f"/results/{result_id}", status_code=303)
     except Exception as e:
         # Return error page instead of 500
+        from src.fetcher.ghost_fetcher import GhostAPIError
         error_message = str(e)
-        if "SSL" in error_message or "certificate" in error_message.lower():
+        if isinstance(e, GhostAPIError):
+            error_message = f"Ghost API: {error_message}"
+        elif "SSL" in error_message or "certificate" in error_message.lower():
             error_message = f"SSL certificate error for {url}. The target site may have an invalid certificate."
         elif "Connection" in error_message or "Timeout" in error_message:
             error_message = f"Could not connect to {url}. Please check if the URL is accessible."

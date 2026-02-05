@@ -93,6 +93,11 @@ class JobQueue:
             job.status = "failed"
 
         except Exception as e:
+            from src.fetcher.ghost_fetcher import GhostAPIError
+            if isinstance(e, GhostAPIError):
+                job.error = f"Ghost API: {str(e)}"
+                job.status = "failed"
+                return
             job.error = f"Analysis failed: {type(e).__name__}: {str(e)}"
             job.status = "failed"
 

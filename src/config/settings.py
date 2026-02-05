@@ -111,6 +111,13 @@ class APISettings:
 
 
 @dataclass
+class GhostSettings:
+    """Settings for Ghost Admin API integration."""
+    url: str = ""  # e.g. "https://marketing.91app.com"
+    admin_api_key: str = ""  # format: "id:secret"
+
+
+@dataclass
 class Settings:
     """Main application settings container."""
     fetcher: FetcherSettings = field(default_factory=FetcherSettings)
@@ -120,6 +127,7 @@ class Settings:
     seo: SeoSettings = field(default_factory=SeoSettings)
     security: SecuritySettings = field(default_factory=SecuritySettings)
     api: APISettings = field(default_factory=APISettings)
+    ghost: GhostSettings = field(default_factory=GhostSettings)
 
     # Application settings
     debug: bool = False
@@ -152,6 +160,12 @@ class Settings:
             self.api.job_max_workers = int(job_workers)
         if cors := os.environ.get("GEO_API_CORS_ORIGINS"):
             self.api.cors_origins = [o.strip() for o in cors.split(",")]
+
+        # Ghost Admin API
+        if ghost_url := os.environ.get("GHOST_URL"):
+            self.ghost.url = ghost_url.rstrip("/")
+        if ghost_key := os.environ.get("GHOST_ADMIN_API_KEY"):
+            self.ghost.admin_api_key = ghost_key
 
 
 # Global settings instance

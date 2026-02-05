@@ -87,6 +87,11 @@ def fetch_html(source: str) -> str:
     - Re-validates IP after any redirect
     - Limits response size to prevent memory exhaustion
     """
+    # Ghost Admin API: bypass normal fetch for configured Ghost URLs
+    from src.fetcher.ghost_fetcher import fetch_ghost_post, is_ghost_url
+    if is_ghost_url(source):
+        return fetch_ghost_post(source)
+
     # Security: Only accept URLs, never local file paths
     if not _is_url(source):
         raise ValueError("Only http and https URLs are allowed")
