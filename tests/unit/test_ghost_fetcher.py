@@ -9,25 +9,34 @@ from src.fetcher.ghost_fetcher import (
     GhostAPIError,
     _build_html_document,
     _create_ghost_jwt,
-    _extract_slug_from_url,
+    _parse_ghost_url,
     fetch_ghost_post,
     is_ghost_url,
 )
 
 
-class TestExtractSlug:
+class TestParseGhostURL:
     def test_simple_slug(self):
-        assert _extract_slug_from_url("https://example.com/my-post/") == "my-post"
+        result = _parse_ghost_url("https://example.com/my-post/")
+        assert result == {"type": "slug", "value": "my-post"}
 
     def test_no_trailing_slash(self):
-        assert _extract_slug_from_url("https://example.com/my-post") == "my-post"
+        result = _parse_ghost_url("https://example.com/my-post")
+        assert result == {"type": "slug", "value": "my-post"}
 
     def test_nested_path(self):
-        assert _extract_slug_from_url("https://example.com/blog/my-post/") == "my-post"
+        result = _parse_ghost_url("https://example.com/blog/my-post/")
+        assert result == {"type": "slug", "value": "my-post"}
+
+    def test_editor_url_with_post_id(self):
+        result = _parse_ghost_url(
+            "https://marketing.91app.com/ghost/#/editor/post/69841ab925a6de00018d60d0"
+        )
+        assert result == {"type": "id", "value": "69841ab925a6de00018d60d0"}
 
     def test_empty_path_raises(self):
         with pytest.raises(GhostAPIError):
-            _extract_slug_from_url("https://example.com/")
+            _parse_ghost_url("https://example.com/")
 
 
 class TestIsGhostURL:
@@ -169,6 +178,32 @@ class TestFetchGhostPost:
 
         with pytest.raises(GhostAPIError, match="驗證失敗"):
             fetch_ghost_post("https://ghost.example.com/post/")
+
+    @patch("src.fetcher.ghost_fetcher.requests.get")
+    @patch("src.fetcher.ghost_fetcher.settings")
+    def test_editor_url_uses_id_endpoint(self, mock_settings, mock_get):
+        mock_settings.ghost.url = "https://ghost.example.com"
+        mock_settings.ghost.admin_api_key = "abc123:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        mock_settings.fetcher.request_timeout = 15
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "posts": [{
+                "title": "Editor Post",
+                "html": "<p>Editor content</p>",
+                "status": "draft",
+            }]
+        }
+        mock_get.return_value = mock_response
+
+        html = fetch_ghost_post("https://ghost.example.com/ghost/#/editor/post/69841ab925a6de00018d60d0")
+        assert "Editor Post" in html
+
+        # Verify the API was called with the ID endpoint, not slug
+        call_url = mock_get.call_args[0][0]
+        assert "/posts/69841ab925a6de00018d60d0/" in call_url
+        assert "/slug/" not in call_url
 
     @patch("src.fetcher.ghost_fetcher.settings")
     def test_not_configured_raises(self, mock_settings):

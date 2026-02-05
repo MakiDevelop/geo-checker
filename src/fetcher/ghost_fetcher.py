@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from urllib.parse import urlparse
 
@@ -44,10 +45,14 @@ def fetch_ghost_post(url: str) -> str:
     if not ghost_url or not api_key:
         raise GhostAPIError("Ghost API 未設定（需要 GHOST_URL 和 GHOST_ADMIN_API_KEY）")
 
-    slug = _extract_slug_from_url(url)
+    identifier = _parse_ghost_url(url)
     token = _create_ghost_jwt(api_key)
 
-    api_endpoint = f"{ghost_url}/ghost/api/admin/posts/slug/{slug}/"
+    # Editor URL 用 post ID，公開 URL 用 slug
+    if identifier["type"] == "id":
+        api_endpoint = f"{ghost_url}/ghost/api/admin/posts/{identifier['value']}/"
+    else:
+        api_endpoint = f"{ghost_url}/ghost/api/admin/posts/slug/{identifier['value']}/"
 
     response = requests.get(
         api_endpoint,
@@ -60,7 +65,7 @@ def fetch_ghost_post(url: str) -> str:
     )
 
     if response.status_code == 404:
-        raise GhostAPIError(f"Ghost 文章不存在：{slug}")
+        raise GhostAPIError(f"Ghost 文章不存在：{identifier['value']}")
     if response.status_code == 401:
         raise GhostAPIError("Ghost API 驗證失敗，請確認 Admin API Key 是否正確")
     if response.status_code != 200:
@@ -69,7 +74,7 @@ def fetch_ghost_post(url: str) -> str:
     data = response.json()
     posts = data.get("posts", [])
     if not posts:
-        raise GhostAPIError(f"Ghost API 未回傳文章資料：{slug}")
+        raise GhostAPIError(f"Ghost API 未回傳文章資料：{identifier['value']}")
 
     return _build_html_document(posts[0], url)
 
@@ -101,13 +106,29 @@ def _create_ghost_jwt(api_key: str) -> str:
     )
 
 
-def _extract_slug_from_url(url: str) -> str:
-    """Extract the post slug from a Ghost URL."""
+def _parse_ghost_url(url: str) -> dict:
+    """
+    Parse a Ghost URL and return identifier type and value.
+
+    Supports:
+    - Editor URL: /ghost/#/editor/post/{id} → {"type": "id", "value": "..."}
+    - Public URL: /slug-name/ → {"type": "slug", "value": "..."}
+    """
     parsed = urlparse(url)
+
+    # Ghost editor URL: fragment contains /editor/post/{id}
+    if parsed.fragment:
+        match = re.search(r"/editor/post/([a-f0-9]{24})", parsed.fragment)
+        if match:
+            return {"type": "id", "value": match.group(1)}
+
+    # Public post URL: last path segment is slug
     path_parts = [p for p in parsed.path.strip("/").split("/") if p]
+    # Filter out 'ghost' path segment
+    path_parts = [p for p in path_parts if p != "ghost"]
     if not path_parts:
-        raise GhostAPIError(f"無法從 URL 提取 slug：{url}")
-    return path_parts[-1]
+        raise GhostAPIError(f"無法從 URL 提取文章識別碼：{url}")
+    return {"type": "slug", "value": path_parts[-1]}
 
 
 def _build_html_document(post: dict, original_url: str) -> str:
