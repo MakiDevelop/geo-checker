@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ t["history.title"] }} - GEO Checker</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <nav class="result-nav">
+      <a href="/" class="nav-brand">GEO Checker</a>
+      <a href="/" class="nav-back">← {{ t["nav.back"] }}</a>
+    </nav>
+    <div class="history-container">
+      <div class="history-header">
+        <h1>{{ t["history.title"] }}</h1>
+        <p class="history-subtitle">{{ t["history.subtitle_local"] }}</p>
+      </div>
+
+      <div id="history-content">
+        <!-- Populated by JavaScript -->
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="/terms">{{ t["footer.terms"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="/privacy">{{ t["footer.privacy"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="mailto:makiakatsu@gmail.com">{{ t["footer.contact"] }}</a>
+      </div>
+      <div class="footer-copy">© 2026 GEO Checker</div>
+    </footer>
+
+    <script>
+      (function() {
+        const container = document.getElementById("history-content");
+        const history = JSON.parse(localStorage.getItem("geo_history") || "[]");
+
+        if (history.length === 0) {
+          container.innerHTML = `
+            <div class="history-empty">
+              <div class="history-empty-icon">📋</div>
+              <p>{{ t["history.empty_local"] }}</p>
+              <a href="/" class="history-cta">{{ t["history.start"] }}</a>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '<div class="history-list">';
+
+        history.forEach(item => {
+          const date = item.created_at ? item.created_at.slice(0, 10) : '';
+          const time = item.created_at ? item.created_at.slice(11, 16) : '';
+          const score = item.score !== null ? item.score : '-';
+
+          html += `
+            <a href="/results/${item.id}" class="history-card">
+              <div class="history-card-main">
+                <div class="history-url" title="${item.url}">${item.url}</div>
+                <div class="history-meta">
+                  <span class="history-date">${date}</span>
+                  <span class="history-time">${time}</span>
+                </div>
+              </div>
+              <div class="history-card-score">
+                <div class="history-score-value">${score}</div>
+                <div class="history-score-label">Surface</div>
+              </div>
+              <div class="history-card-arrow">→</div>
+            </a>
+          `;
+        });
+
+        html += '</div>';
+
+        // Add clear button
+        html += `
+          <div class="history-actions">
+            <button id="clear-history" class="history-clear-btn">{{ t["history.clear"] }}</button>
+          </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Clear history handler
+        document.getElementById("clear-history").addEventListener("click", function() {
+          if (confirm("{{ t['history.clear_confirm'] }}")) {
+            localStorage.removeItem("geo_history");
+            location.reload();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

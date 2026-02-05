@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ t["compare.title"] }} - GEO Checker</title>
+    <meta name="description" content="{{ t['compare.subtitle'] }}" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <nav class="result-nav">
+      <a href="/" class="nav-brand">GEO Checker</a>
+      <a href="/" class="nav-back">← {{ t["nav.back"] }}</a>
+    </nav>
+
+    <div class="container">
+      <div class="card">
+        <h1 class="title">{{ t["compare.title"] }}</h1>
+        <p class="subtitle">{{ t["compare.subtitle"] }}</p>
+
+        {% if error %}
+        <div class="issue-group issue-critical">
+          <div class="issue-header">
+            <span class="issue-icon">&#10060;</span>
+            <span class="issue-title">{{ error }}</span>
+          </div>
+          {% if errors %}
+          <ul class="issue-list">
+            {% for url_id, err in errors.items() %}
+            <li>{{ url_id }}: {{ err }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <form method="post" action="/compare" class="compare-form" id="compare-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+          <div class="compare-inputs">
+            <div class="compare-input-row">
+              <label for="url1" class="compare-label">
+                <span class="compare-badge">URL 1</span>
+                {{ t["compare.url_required"] }}
+              </label>
+              <input
+                id="url1"
+                name="url1"
+                type="url"
+                placeholder="https://example.com/page1"
+                required
+                class="search-input"
+              />
+            </div>
+
+            <div class="compare-input-row">
+              <label for="url2" class="compare-label">
+                <span class="compare-badge">URL 2</span>
+                {{ t["compare.url_required"] }}
+              </label>
+              <input
+                id="url2"
+                name="url2"
+                type="url"
+                placeholder="https://example.com/page2"
+                required
+                class="search-input"
+              />
+            </div>
+
+            <div class="compare-input-row optional">
+              <label for="url3" class="compare-label">
+                <span class="compare-badge compare-badge-optional">URL 3</span>
+                {{ t["compare.url_optional"] }}
+              </label>
+              <input
+                id="url3"
+                name="url3"
+                type="url"
+                placeholder="https://example.com/page3"
+                class="search-input"
+              />
+            </div>
+          </div>
+
+          <div class="compare-actions">
+            <button type="submit" class="compare-btn" id="compare-button">
+              {{ t["compare.button"] }}
+            </button>
+          </div>
+        </form>
+
+        <div class="compare-tips">
+          <h3>{{ t["compare.tips.title"] }}</h3>
+          <ul>
+            <li>{{ t["compare.tips.tip1"] }}</li>
+            <li>{{ t["compare.tips.tip2"] }}</li>
+            <li>{{ t["compare.tips.tip3"] }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay" aria-hidden="true">
+      <div class="loading-card">
+        <div class="loading-title">{{ t["compare.loading.title"] }}</div>
+        <div class="loading-bar">
+          <div class="loading-progress" id="loading-progress"></div>
+        </div>
+        <div class="loading-metric">
+          <span id="loading-percent">0%</span>
+          <span class="loading-message" id="loading-message"></span>
+        </div>
+        <div class="loading-disclaimer">
+          <div>{{ t["compare.loading.note1"] }}</div>
+          <div>{{ t["compare.loading.note2"] }}</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("compare-form");
+      const button = document.getElementById("compare-button");
+      const overlay = document.getElementById("loading-overlay");
+      const progress = document.getElementById("loading-progress");
+      const percent = document.getElementById("loading-percent");
+      const message = document.getElementById("loading-message");
+      let submitted = false;
+
+      const messages = [
+        "{{ t['compare.loading.msg1'] }}",
+        "{{ t['compare.loading.msg2'] }}",
+        "{{ t['compare.loading.msg3'] }}",
+      ];
+
+      form.addEventListener("submit", (event) => {
+        if (submitted) return;
+
+        event.preventDefault();
+        button.disabled = true;
+        overlay.classList.add("active");
+        overlay.setAttribute("aria-hidden", "false");
+
+        const urlCount = document.getElementById("url3").value.trim() ? 3 : 2;
+        const totalDuration = 8000 + (urlCount * 2000) + Math.floor(Math.random() * 3000);
+        const startTime = Date.now();
+        let messageIndex = 0;
+        message.textContent = messages[0];
+
+        const messageTimer = setInterval(() => {
+          messageIndex = (messageIndex + 1) % messages.length;
+          message.textContent = messages[messageIndex];
+        }, 2000);
+
+        const submitForm = () => {
+          if (submitted) return;
+          submitted = true;
+          clearInterval(messageTimer);
+          form.submit();
+        };
+
+        setTimeout(submitForm, totalDuration + 500);
+
+        const tick = () => {
+          const elapsed = Date.now() - startTime;
+          const ratio = Math.min(elapsed / totalDuration, 1);
+          let value = ratio <= 0.7 ? ratio / 0.7 * 0.7 : 0.7 + (ratio - 0.7) / 0.3 * 0.3;
+          const display = Math.min(Math.round(value * 100), 100);
+          progress.style.width = `${display}%`;
+          percent.textContent = `${display}%`;
+
+          if (ratio < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            setTimeout(submitForm, 500);
+          }
+        };
+
+        requestAnimationFrame(tick);
+      });
+
+      // Check for expired token
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("expired") === "1") {
+        alert("{{ t['compare.token_expired'] }}");
+        window.history.replaceState({}, document.title, "/compare");
+      }
+    </script>
+
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="/terms">{{ t["footer.terms"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="/privacy">{{ t["footer.privacy"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="mailto:makiakatsu@gmail.com">{{ t["footer.contact"] }}</a>
+      </div>
+      <div class="footer-copy">© 2026 GEO Checker</div>
+    </footer>
+  </body>
+</html>

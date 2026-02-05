@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ t["compare.results.title"] }} - GEO Checker</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <nav class="result-nav">
+      <a href="/" class="nav-brand">GEO Checker</a>
+      <div class="nav-actions">
+        <a href="/compare" class="nav-back">← {{ t["compare.new"] }}</a>
+      </div>
+    </nav>
+
+    <div class="container">
+      <div class="card">
+        <h1 class="title">{{ t["compare.results.title"] }}</h1>
+
+        {% if error %}
+        <div class="issue-group issue-critical">
+          <div class="issue-header">
+            <span class="issue-icon">&#10060;</span>
+            <span class="issue-title">{{ error }}</span>
+          </div>
+        </div>
+        <div class="section">
+          <a class="muted-link" href="/compare">{{ t["compare.try_again"] }}</a>
+        </div>
+        {% else %}
+
+        {% set summary = comparison.summary if comparison else {} %}
+        {% set diffs = comparison.diffs if comparison else [] %}
+        {% set winner = summary.winner if summary else None %}
+
+        <!-- Winner Banner -->
+        {% if winner %}
+        <div class="compare-winner-banner">
+          <div class="winner-icon">&#127942;</div>
+          <div class="winner-content">
+            <div class="winner-label">{{ t["compare.winner"] }}</div>
+            <div class="winner-url">{{ urls[winner] }}</div>
+            <div class="winner-score">{{ t["compare.score"] }}: {{ summary.coverage[winner] }}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Score Comparison Cards -->
+        <div class="section">
+          <h2>{{ t["compare.score_comparison"] }}</h2>
+          <div class="compare-scores-grid">
+            {% for url_id, url in urls.items() %}
+            {% set result = results.get(url_id, {}) if results else {} %}
+            {% set geo = result.get('geo', {}) if result else {} %}
+            {% set geo_score = geo.get('geo_score', {}) if geo else {} %}
+            {% set breakdown = geo_score.get('breakdown', {}) if geo_score else {} %}
+            <div class="compare-score-card {% if url_id == winner %}compare-winner{% endif %}">
+              {% if url_id == winner %}
+              <div class="winner-badge-small">{{ t["compare.winner_badge"] }}</div>
+              {% endif %}
+              <div class="compare-url-label">{{ url_id|upper }}</div>
+              <div class="compare-url-text" title="{{ url }}">{{ url[:50] }}{% if url|length > 50 %}...{% endif %}</div>
+              <div class="compare-score-circle grade-{{ geo_score.grade|default('f')|lower }}">
+                <div class="compare-score-value">{{ geo_score.total|default(0) }}</div>
+                <div class="compare-score-label">GEO Score</div>
+              </div>
+              <div class="compare-grade-badge grade-{{ geo_score.grade|default('f')|lower }}">
+                {{ geo_score.grade|default('F') }}
+              </div>
+              <div class="compare-breakdown-mini">
+                {% set acc = breakdown.get('accessibility', {}) if breakdown else {} %}
+                {% set struct = breakdown.get('structure', {}) if breakdown else {} %}
+                {% set qual = breakdown.get('quality', {}) if breakdown else {} %}
+                <div class="breakdown-mini-item">
+                  <span class="breakdown-mini-label">{{ t["breakdown.accessibility"] }}</span>
+                  <span class="breakdown-mini-value">{{ acc.get('score', 0) }}/{{ acc.get('max', 40) }}</span>
+                </div>
+                <div class="breakdown-mini-item">
+                  <span class="breakdown-mini-label">{{ t["breakdown.structure"] }}</span>
+                  <span class="breakdown-mini-value">{{ struct.get('score', 0) }}/{{ struct.get('max', 30) }}</span>
+                </div>
+                <div class="breakdown-mini-item">
+                  <span class="breakdown-mini-label">{{ t["breakdown.quality"] }}</span>
+                  <span class="breakdown-mini-value">{{ qual.get('score', 0) }}/{{ qual.get('max', 30) }}</span>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Insights -->
+        {% if insights and insights|length > 0 %}
+        <div class="section">
+          <h2>{{ t["compare.insights"] }}</h2>
+          <div class="insights-list">
+            {% for insight in insights %}
+            <div class="insight-item">
+              <span class="insight-icon">&#128161;</span>
+              <span class="insight-text">{{ insight }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Detailed Comparison Table -->
+        <div class="section">
+          <h2>{{ t["compare.detailed_comparison"] }}</h2>
+          <div class="compare-table-wrapper">
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th>{{ t["compare.metric"] }}</th>
+                  {% for url_id in urls.keys() %}
+                  <th class="{% if url_id == winner %}winner-col{% endif %}">
+                    {{ url_id|upper }}
+                    {% if url_id == winner %}<span class="winner-star">&#11088;</span>{% endif %}
+                  </th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for diff in diffs %}
+                {% set metric_key = diff.get('key', '') if diff else '' %}
+                {% set tooltip_key = 'tooltip.' + metric_key if metric_key else '' %}
+                {% set tooltip_text = t.get(tooltip_key, '') if tooltip_key else '' %}
+                <tr>
+                  <td class="metric-name">
+                    <span class="metric-label" {% if tooltip_text %}data-tooltip="{{ tooltip_text }}"{% endif %}>
+                      {{ diff.metric }}
+                      {% if tooltip_text %}
+                      <span class="tooltip-icon">ⓘ</span>
+                      {% endif %}
+                    </span>
+                  </td>
+                  {% for url_id in urls.keys() %}
+                  {% set diff_values = diff.get('values', {}) if diff else {} %}
+                  <td class="metric-value {% if url_id == winner %}winner-col{% endif %}">
+                    {{ diff_values.get(url_id, '-') }}
+                  </td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Error Messages -->
+        {% if errors %}
+        <div class="section">
+          <div class="issue-group issue-warning">
+            <div class="issue-header">
+              <span class="issue-icon">&#9888;</span>
+              <span class="issue-title">{{ t["compare.partial_errors"] }}</span>
+            </div>
+            <ul class="issue-list">
+              {% for url_id, err in errors.items() %}
+              <li>{{ url_id }}: {{ err }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="section compare-actions-footer">
+          <a class="muted-link" href="/compare">{{ t["compare.new"] }}</a>
+          <span class="link-divider">|</span>
+          <a class="muted-link" href="/">{{ t["nav.back"] }}</a>
+        </div>
+
+        {% endif %}
+      </div>
+    </div>
+
+    <script src="/static/js/score-animation.js"></script>
+
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="/terms">{{ t["footer.terms"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="/privacy">{{ t["footer.privacy"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="mailto:makiakatsu@gmail.com">{{ t["footer.contact"] }}</a>
+      </div>
+      <div class="footer-copy">© 2026 GEO Checker</div>
+    </footer>
+  </body>
+</html>

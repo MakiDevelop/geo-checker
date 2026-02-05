@@ -1,0 +1,136 @@
+{
+  "url": "https://www.pixnet.net",
+  "meta": {
+    "title": "\u75de\u5ba2\u90a6PIXNET-\u638c\u63e1\u6700\u65b0\u71b1\u9580\u8a71\u984c\u8cbc\u6587\u3001\u77ed\u5f71\u97f3\uff0c\u8b93\u751f\u6d3b\u5145\u6eff\u9748\u611f!",
+    "description": "\u75de\u5ba2\u90a6\u63d0\u4f9b\u90e8\u843d\u683c\u3001\u77ed\u8cbc\u6587\u3001\u77ed\u5f71\u97f3\u7b49\u81ea\u5a92\u9ad4\u7db2\u8def\u5e73\u53f0\u670d\u52d9\uff0c\u532f\u96c6\u6700\u65b0\u6d3b\u52d5\u8cc7\u8a0a\u71b1\u641c\u8a71\u984c\uff0c\u6db5\u84cb\u7f8e\u98df\u3001\u65c5\u904a\u3001\u89aa\u5b50\u3001\u5f71\u8996\u3001\u7f8e\u599d\u7b49\u6587\u7ae0\uff0c\u5feb\u4f86\u4e00\u8d77\u5206\u4eab\u66f4\u591a\u751f\u6d3b\u9748\u611f\u8207\u6311\u6230\u5427\uff01",
+    "canonical": "https://www.pixnet.net"
+  },
+  "content": {
+    "headings": [],
+    "paragraphs": [
+      "\u7d2f\u7a4d\u8fd1\u5343\u842c\u6d41\u91cf\u7684\u5bf6\u5bf6\uff0c\u8db3\u8de1\u904d\u5e03\u5168\u7403\uff0c\u66fe\u642d\u4e58\u904a\u8f2a\u74b0\u904a\u4e16\u754c302\u5929\u3002\u5979\u4e0d\u53ea\u5206\u4eab\u570b\u5167\u5916\u65c5\u904a\u8207\u7f8e\u98df\uff0c\u8fd1\u671f\u66f4\u8de8\u8db3\u623f\u7522\u8cde\u5c4b\u958b\u7bb1\u3002\u8c50\u5bcc\u7684\u95b1\u6b77\u8207\u7cbe\u7dfb\u7684\u5716\u6587\uff0c\u8b93\u5979\u6210\u70ba\u6700\u5177\u5f71\u97ff\u529b\u7684\u751f\u6d3b\u98a8\u683c\u90e8\u843d\u5ba2\u4e4b\u4e00\u3002",
+      "\u7fa8\u6155\u74b0\u904a\u4e16\u754c\u7684\u751f\u6d3b\uff1f\u8ddf\u8457\u5979\u7684\u93e1\u982d\uff0c\u770b\u898b\u4e0d\u4e00\u6a23\u7684\u5962\u83ef\u8996\u91ce\u3002"
+    ],
+    "lists": [],
+    "tables": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "\u7d2f\u7a4d\u8fd1\u5343\u842c\u6d41\u91cf\u7684\u5bf6\u5bf6\uff0c\u8db3\u8de1\u904d\u5e03\u5168\u7403\uff0c\u66fe\u642d\u4e58\u904a\u8f2a\u74b0\u904a\u4e16\u754c302\u5929\u3002\u5979\u4e0d\u53ea\u5206\u4eab\u570b\u5167\u5916\u65c5\u904a\u8207\u7f8e\u98df\uff0c\u8fd1\u671f\u66f4\u8de8\u8db3\u623f\u7522\u8cde\u5c4b\u958b\u7bb1\u3002\u8c50\u5bcc\u7684\u95b1\u6b77\u8207\u7cbe\u7dfb\u7684\u5716\u6587\uff0c\u8b93\u5979\u6210\u70ba\u6700\u5177\u5f71\u97ff\u529b\u7684\u751f\u6d3b\u98a8\u683c\u90e8\u843d\u5ba2\u4e4b\u4e00\u3002"
+      },
+      {
+        "type": "paragraph",
+        "text": "\u7fa8\u6155\u74b0\u904a\u4e16\u754c\u7684\u751f\u6d3b\uff1f\u8ddf\u8457\u5979\u7684\u93e1\u982d\uff0c\u770b\u898b\u4e0d\u4e00\u6a23\u7684\u5962\u83ef\u8996\u91ce\u3002"
+      }
+    ]
+  },
+  "links": {
+    "internal": [],
+    "external": []
+  },
+  "entities": [],
+  "stats": {
+    "word_count": 2,
+    "paragraph_count": 2,
+    "avg_paragraph_length": 1,
+    "heading_count": 0,
+    "internal_links": 0,
+    "external_links": 0
+  },
+  "content_surface_size": {
+    "score": 3,
+    "components": {
+      "heading_blocks": 0,
+      "paragraph_blocks": 2,
+      "list_blocks": 0,
+      "table_blocks": 0,
+      "definition_blocks": 1
+    }
+  },
+  "geo": {
+    "ai_crawler_access": {
+      "robots_txt_found": false,
+      "gptbot": "unspecified",
+      "claudebot": "unspecified",
+      "perplexitybot": "unspecified",
+      "google_extended": "unspecified",
+      "meta_robots": {
+        "content": "index, follow",
+        "noindex": false,
+        "nofollow": false
+      },
+      "x_robots_tag": {
+        "value": "",
+        "noindex": false,
+        "nofollow": false
+      },
+      "notes": "robots.txt not found or unreadable."
+    },
+    "ai_usage_interpretation": {
+      "type": "Conceptual Summary-leaning",
+      "signals": {
+        "reference": 1,
+        "conceptual": 2,
+        "structural_diversity": 1,
+        "enumeratable": false
+      }
+    },
+    "interpretation_rule_hints": {
+      "reference_leaning": [
+        "faq_present",
+        "lists_tables",
+        "entity_explanations"
+      ],
+      "conceptual_summary_leaning": [
+        "long_narrative",
+        "low_diversity",
+        "few_units"
+      ]
+    },
+    "last_mile_blockers": [
+      "no_enumeratable_facts",
+      "weak_narrative_entry",
+      "low_structural_diversity"
+    ],
+    "blocker_signal_mapping": {
+      "no_enumeratable_facts": {
+        "signals": [
+          "ul_ol_count < threshold",
+          "table_count == 0",
+          "numeric_statements_ratio low"
+        ],
+        "triggered": true
+      },
+      "weak_narrative_entry": {
+        "signals": [
+          "no_h1_or_h2",
+          "meta_description_empty"
+        ],
+        "triggered": true
+      },
+      "low_structural_diversity": {
+        "signals": [
+          "structural_diversity <= 2"
+        ],
+        "triggered": true
+      }
+    },
+    "structural_fixes": [
+      {
+        "action": "add_fact_list",
+        "addresses_blockers": [
+          "no_enumeratable_facts",
+          "low_structural_diversity"
+        ]
+      },
+      {
+        "action": "add_h_framing",
+        "addresses_blockers": [
+          "weak_narrative_entry"
+        ]
+      }
+    ]
+  },
+  "analysis_id": "5b0bd2c7264c42c2aa2e3d1400016d15",
+  "created_at": "2026-01-10T12:27:13.425458+00:00"
+}

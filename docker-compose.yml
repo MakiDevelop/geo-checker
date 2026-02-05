@@ -1,0 +1,25 @@
+services:
+  geo-checker:
+    build: .
+    container_name: geo-checker
+    restart: unless-stopped
+    mem_limit: 1536m
+    memswap_limit: 2g
+    volumes:
+      - ./data:/app/data
+    # [未來商業化] API Key 設定
+    # environment:
+    #   - GEO_API_KEY_<NAME>=<key>:<tier>
+    #   # tier: free(10/min), standard(30/min), premium(100/min)
+    networks:
+      - abd-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.geo-checker.rule=Host(`gc.ranran.tw`)"
+      - "traefik.http.routers.geo-checker.entrypoints=websecure"
+      - "traefik.http.routers.geo-checker.tls.certresolver=letsencrypt"
+      - "traefik.http.services.geo-checker.loadbalancer.server.port=8000"
+
+networks:
+  abd-network:
+    external: true

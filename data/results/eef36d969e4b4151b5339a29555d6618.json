@@ -1,0 +1,71 @@
+{
+  "url": "https://example.com",
+  "meta": {
+    "title": "Example Domain",
+    "description": "",
+    "canonical": ""
+  },
+  "content": {
+    "headings": [
+      {
+        "level": "h1",
+        "text": "Example Domain",
+        "paragraphs": [
+          "This domain is for use in documentation examples without needing permission. Avoid use in operations.",
+          "Learn more"
+        ]
+      }
+    ],
+    "paragraphs": [
+      "This domain is for use in documentation examples without needing permission. Avoid use in operations.",
+      "Learn more"
+    ],
+    "lists": [],
+    "tables": [],
+    "blocks": [
+      {
+        "type": "heading",
+        "level": "h1",
+        "text": "Example Domain"
+      },
+      {
+        "type": "paragraph",
+        "text": "This domain is for use in documentation examples without needing permission. Avoid use in operations."
+      },
+      {
+        "type": "paragraph",
+        "text": "Learn more"
+      }
+    ]
+  },
+  "links": {
+    "internal": [],
+    "external": [
+      {
+        "href": "https://iana.org/domains/example",
+        "text": "Learn more"
+      }
+    ]
+  },
+  "entities": [],
+  "stats": {
+    "word_count": 17,
+    "paragraph_count": 2,
+    "avg_paragraph_length": 8,
+    "heading_count": 1,
+    "internal_links": 0,
+    "external_links": 1
+  },
+  "content_surface_size": {
+    "score": 3,
+    "components": {
+      "heading_blocks": 1,
+      "paragraph_blocks": 2,
+      "list_blocks": 0,
+      "table_blocks": 0,
+      "definition_blocks": 0
+    }
+  },
+  "analysis_id": "eef36d969e4b4151b5339a29555d6618",
+  "created_at": "2026-01-10T08:06:14.864866+00:00"
+}

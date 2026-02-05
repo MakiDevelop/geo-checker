@@ -1,0 +1,143 @@
+{
+  "url": "https://91app.com/retail-digital-transformation/",
+  "meta": {
+    "title": "\u96f6\u552e\u6578\u4f4d\u8f49\u578b | 91APP",
+    "description": "\u54c1\u724c\u9700\u4ee5\u96f6\u552e\u601d\u7dad\u5be6\u8e10\u865b\u5be6\u878d\u5408\u8207\u54c1\u724c\u6210\u9577\u300291APP \u5168\u65b9\u4f4d\u5546\u52d9\u6a21\u5f0f\u6574\u5408\u9580\u5e02\u8207\u96fb\u5546\u8cc7\u6e90\u3001\u5275\u9020\u5546\u52d9\u50f9\u503c\uff0c\u518d\u4ee5\u5168\u901a\u8def\u6578\u64da\u63d0\u5347\u884c\u92b7\u6548\u76ca\uff0c\u900f\u904e\u9a45\u52d5\u54c1\u724c\u300c\u5546\u52d9 x \u884c\u92b7\u300d\u5faa\u74b0\uff0c\u767c\u63ee\u5168\u901a\u8def\u6210\u9577\u50f9\u503c\u3002",
+    "canonical": "https://91app.com/retail-digital-transformation/"
+  },
+  "content": {
+    "headings": [
+      {
+        "level": "h2",
+        "text": "\u5960\u5b9a\u7a69\u5065\u7cfb\u7d71\u3001\u5b8c\u6574\u6578\u4f4d\u8f49\u578b\u652f\u63f4 91APP \u52a9\u54c1\u724c\u5e03\u5c40\u96f6\u552e\u9577\u9060\u7af6\u722d\u529b",
+        "paragraphs": [
+          "91APP \u96f6\u552e\u89e3\u6c7a\u65b9\u6848\u900f\u904e\u7522\u54c1\u8207\u670d\u52d9\u7684\u5354\u4f5c\u3001\u5546\u52d9\u8207\u884c\u92b7\u7684\u4ea4\u4e92\u512a\u5316 \u7121\u8ad6\u9762\u5c0d\u4f55\u7a2e\u9700\u6c42\u3001\u968e\u6bb5\u8207\u76ee\u6a19\uff0c\u90fd\u80fd\u6210\u70ba\u54c1\u724c\u6301\u7e8c\u589e\u9577\u7684\u966a\u8dd1\u8005"
+        ]
+      }
+    ],
+    "paragraphs": [
+      "91APP \u96f6\u552e\u89e3\u6c7a\u65b9\u6848\u900f\u904e\u7522\u54c1\u8207\u670d\u52d9\u7684\u5354\u4f5c\u3001\u5546\u52d9\u8207\u884c\u92b7\u7684\u4ea4\u4e92\u512a\u5316 \u7121\u8ad6\u9762\u5c0d\u4f55\u7a2e\u9700\u6c42\u3001\u968e\u6bb5\u8207\u76ee\u6a19\uff0c\u90fd\u80fd\u6210\u70ba\u54c1\u724c\u6301\u7e8c\u589e\u9577\u7684\u966a\u8dd1\u8005"
+    ],
+    "lists": [],
+    "tables": [],
+    "blocks": [
+      {
+        "type": "heading",
+        "level": "h2",
+        "text": "\u5960\u5b9a\u7a69\u5065\u7cfb\u7d71\u3001\u5b8c\u6574\u6578\u4f4d\u8f49\u578b\u652f\u63f4 91APP \u52a9\u54c1\u724c\u5e03\u5c40\u96f6\u552e\u9577\u9060\u7af6\u722d\u529b"
+      },
+      {
+        "type": "paragraph",
+        "text": "91APP \u96f6\u552e\u89e3\u6c7a\u65b9\u6848\u900f\u904e\u7522\u54c1\u8207\u670d\u52d9\u7684\u5354\u4f5c\u3001\u5546\u52d9\u8207\u884c\u92b7\u7684\u4ea4\u4e92\u512a\u5316 \u7121\u8ad6\u9762\u5c0d\u4f55\u7a2e\u9700\u6c42\u3001\u968e\u6bb5\u8207\u76ee\u6a19\uff0c\u90fd\u80fd\u6210\u70ba\u54c1\u724c\u6301\u7e8c\u589e\u9577\u7684\u966a\u8dd1\u8005"
+      }
+    ]
+  },
+  "links": {
+    "internal": [],
+    "external": []
+  },
+  "entities": [
+    {
+      "text": "\u7121\u8ad6\u9762\u5c0d\u4f55\u7a2e\u9700\u6c42\u3001\u968e\u6bb5\u8207\u76ee\u6a19\uff0c\u90fd\u80fd\u6210\u70ba\u54c1\u724c\u6301\u7e8c\u589e\u9577\u7684\u966a\u8dd1\u8005",
+      "label": "PERSON",
+      "paragraph_index": 0
+    }
+  ],
+  "stats": {
+    "word_count": 3,
+    "paragraph_count": 1,
+    "avg_paragraph_length": 3,
+    "heading_count": 1,
+    "internal_links": 0,
+    "external_links": 0
+  },
+  "content_surface_size": {
+    "score": 3,
+    "components": {
+      "heading_blocks": 1,
+      "paragraph_blocks": 1,
+      "list_blocks": 0,
+      "table_blocks": 0,
+      "definition_blocks": 1
+    }
+  },
+  "geo": {
+    "ai_crawler_access": {
+      "robots_txt_found": true,
+      "gptbot": "allow",
+      "claudebot": "allow",
+      "perplexitybot": "allow",
+      "google_extended": "allow",
+      "meta_robots": {
+        "content": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+        "noindex": false,
+        "nofollow": false
+      },
+      "x_robots_tag": {
+        "value": "",
+        "noindex": false,
+        "nofollow": false
+      },
+      "notes": "No blocking signals detected in robots settings."
+    },
+    "ai_usage_interpretation": {
+      "type": "Mixed Usage",
+      "signals": {
+        "reference": 2,
+        "conceptual": 2,
+        "structural_diversity": 2,
+        "enumeratable": false
+      }
+    },
+    "interpretation_rule_hints": {
+      "reference_leaning": [
+        "faq_present",
+        "lists_tables",
+        "entity_explanations"
+      ],
+      "conceptual_summary_leaning": [
+        "long_narrative",
+        "low_diversity",
+        "few_units"
+      ]
+    },
+    "last_mile_blockers": [
+      "no_enumeratable_facts",
+      "low_structural_diversity"
+    ],
+    "blocker_signal_mapping": {
+      "no_enumeratable_facts": {
+        "signals": [
+          "ul_ol_count < threshold",
+          "table_count == 0",
+          "numeric_statements_ratio low"
+        ],
+        "triggered": true
+      },
+      "weak_narrative_entry": {
+        "signals": [
+          "no_h1_or_h2",
+          "meta_description_empty"
+        ],
+        "triggered": false
+      },
+      "low_structural_diversity": {
+        "signals": [
+          "structural_diversity <= 2"
+        ],
+        "triggered": true
+      }
+    },
+    "structural_fixes": [
+      {
+        "action": "add_fact_list",
+        "addresses_blockers": [
+          "no_enumeratable_facts",
+          "low_structural_diversity"
+        ]
+      }
+    ]
+  },
+  "analysis_id": "a76205e6c5124153a8036e2a61b567eb",
+  "created_at": "2026-01-10T12:16:11.431246+00:00"
+}

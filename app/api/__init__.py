@@ -1,0 +1,1 @@
+"""GEO Checker API module."""

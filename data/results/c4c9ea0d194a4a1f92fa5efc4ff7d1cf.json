@@ -1,0 +1,131 @@
+{
+  "url": "https://91app.com/marketing-cloud/",
+  "meta": {
+    "title": "Marketing Cloud | 91APP",
+    "description": "",
+    "canonical": "https://91app.com/marketing-cloud/"
+  },
+  "content": {
+    "headings": [],
+    "paragraphs": [
+      "\u6574\u5408\u591a\u500b\u884c\u92b7\u6e20\u9053\uff0c\u5be6\u73fe\u5168\u6e20\u9053\u884c\u92b7\u3002\u7121\u8ad6\u662f\u516c\u57df\u9867\u5ba2\u64f4\u5c55\uff0c\u9084\u662f\u79c1\u57df\u518d\u884c\u92b7\uff0c\u90fd\u80fd\u5728\u7d71\u4e00\u5f8c\u53f0\u8f15\u9b06\u5b8c\u6210\u8a2d\u5b9a\u4e26\u6210\u529f\u6295\u905e\u3002\u652f\u63f4 Meta\u3001Google\u3001LINE \u7b49\u4e3b\u8981\u5e73\u53f0\uff0c\u4ee5\u53ca App Push\u3001Email\u3001SMS \u548c LINE OA \u7b49\u79c1\u57df\u6e20\u9053\uff0c\u8b93\u884c\u92b7\u7121\u7e2b\u929c\u63a5\u3002\u7cfb\u7d71\u81ea\u52d5\u5316\u512a\u5316\u6295\u653e\u7b56\u7565\u63d0\u5347\u6210\u6548\uff0c\u8b93\u54c1\u724c\u5728\u4efb\u4f55\u5730\u65b9\u8207\u53d7\u773e\u4e92\u52d5\u66a2\u884c\u7121\u963b\u3002"
+    ],
+    "lists": [],
+    "tables": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "\u6574\u5408\u591a\u500b\u884c\u92b7\u6e20\u9053\uff0c\u5be6\u73fe\u5168\u6e20\u9053\u884c\u92b7\u3002\u7121\u8ad6\u662f\u516c\u57df\u9867\u5ba2\u64f4\u5c55\uff0c\u9084\u662f\u79c1\u57df\u518d\u884c\u92b7\uff0c\u90fd\u80fd\u5728\u7d71\u4e00\u5f8c\u53f0\u8f15\u9b06\u5b8c\u6210\u8a2d\u5b9a\u4e26\u6210\u529f\u6295\u905e\u3002\u652f\u63f4 Meta\u3001Google\u3001LINE \u7b49\u4e3b\u8981\u5e73\u53f0\uff0c\u4ee5\u53ca App Push\u3001Email\u3001SMS \u548c LINE OA \u7b49\u79c1\u57df\u6e20\u9053\uff0c\u8b93\u884c\u92b7\u7121\u7e2b\u929c\u63a5\u3002\u7cfb\u7d71\u81ea\u52d5\u5316\u512a\u5316\u6295\u653e\u7b56\u7565\u63d0\u5347\u6210\u6548\uff0c\u8b93\u54c1\u724c\u5728\u4efb\u4f55\u5730\u65b9\u8207\u53d7\u773e\u4e92\u52d5\u66a2\u884c\u7121\u963b\u3002"
+      }
+    ]
+  },
+  "links": {
+    "internal": [],
+    "external": []
+  },
+  "entities": [],
+  "stats": {
+    "word_count": 9,
+    "paragraph_count": 1,
+    "avg_paragraph_length": 9,
+    "heading_count": 0,
+    "internal_links": 0,
+    "external_links": 0
+  },
+  "content_surface_size": {
+    "score": 2,
+    "components": {
+      "heading_blocks": 0,
+      "paragraph_blocks": 1,
+      "list_blocks": 0,
+      "table_blocks": 0,
+      "definition_blocks": 1
+    }
+  },
+  "geo": {
+    "ai_crawler_access": {
+      "robots_txt_found": true,
+      "gptbot": "allow",
+      "claudebot": "allow",
+      "perplexitybot": "allow",
+      "google_extended": "allow",
+      "meta_robots": {
+        "content": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+        "noindex": false,
+        "nofollow": false
+      },
+      "x_robots_tag": {
+        "value": "",
+        "noindex": false,
+        "nofollow": false
+      },
+      "notes": "No blocking signals detected in robots settings."
+    },
+    "ai_usage_interpretation": {
+      "type": "Conceptual Summary-leaning",
+      "signals": {
+        "reference": 1,
+        "conceptual": 2,
+        "structural_diversity": 1,
+        "enumeratable": false
+      }
+    },
+    "interpretation_rule_hints": {
+      "reference_leaning": [
+        "faq_present",
+        "lists_tables",
+        "entity_explanations"
+      ],
+      "conceptual_summary_leaning": [
+        "long_narrative",
+        "low_diversity",
+        "few_units"
+      ]
+    },
+    "last_mile_blockers": [
+      "no_enumeratable_facts",
+      "weak_narrative_entry",
+      "low_structural_diversity"
+    ],
+    "blocker_signal_mapping": {
+      "no_enumeratable_facts": {
+        "signals": [
+          "ul_ol_count < threshold",
+          "table_count == 0",
+          "numeric_statements_ratio low"
+        ],
+        "triggered": true
+      },
+      "weak_narrative_entry": {
+        "signals": [
+          "no_h1_or_h2",
+          "meta_description_empty"
+        ],
+        "triggered": true
+      },
+      "low_structural_diversity": {
+        "signals": [
+          "structural_diversity <= 2"
+        ],
+        "triggered": true
+      }
+    },
+    "structural_fixes": [
+      {
+        "action": "add_fact_list",
+        "addresses_blockers": [
+          "no_enumeratable_facts",
+          "low_structural_diversity"
+        ]
+      },
+      {
+        "action": "add_h_framing",
+        "addresses_blockers": [
+          "weak_narrative_entry"
+        ]
+      }
+    ]
+  },
+  "analysis_id": "c4c9ea0d194a4a1f92fa5efc4ff7d1cf",
+  "created_at": "2026-01-10T13:08:53.593795+00:00"
+}

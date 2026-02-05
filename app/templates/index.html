@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ t["app.title"] }}</title>
+    <meta name="description" content="{{ t['app.subtitle'] }}" />
+    <link rel="canonical" href="https://gc.ranran.tw/" />
+    <meta property="og:title" content="{{ t['app.title'] }}" />
+    <meta property="og:description" content="{{ t['app.subtitle'] }}" />
+    <meta property="og:image" content="https://gc.ranran.tw/static/images/hero.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://gc.ranran.tw/" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "GEO Checker",
+      "description": "{{ t['app.subtitle'] }}",
+      "url": "https://gc.ranran.tw",
+      "applicationCategory": "SEO Tool",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "AI crawler access analysis",
+        "Content structure evaluation",
+        "Schema.org detection",
+        "Readability metrics",
+        "GEO score calculation"
+      ]
+    }
+    </script>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <!-- Landing Hero Section -->
+    <div class="landing-hero">
+      <div class="landing-hero-content">
+        <div class="home-hero">
+          <img src="/static/images/hero.png" alt="GEO Checker" class="hero-image" />
+        </div>
+        <h1 class="landing-tagline">{{ t["landing.hero.tagline"] }}</h1>
+        <p class="landing-subtitle">{{ t["landing.hero.subtitle"] }}</p>
+        {% if error %}
+        <div class="error-banner">
+          <span class="error-icon">&#9888;</span>
+          <span class="error-text">{{ error }}</span>
+        </div>
+        {% endif %}
+        <form method="post" action="/analyze" id="analyze-form" class="home-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <div class="search-box">
+            <input id="url" name="url" type="text" placeholder="{{ t['form.placeholder.url'] }}" required class="search-input" />
+            <button type="submit" id="analyze-button" class="search-btn" aria-label="{{ t['form.button.analyze'] }}">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+            </button>
+          </div>
+        </form>
+        <div class="home-links">
+          <a class="muted-link" href="/history">{{ t["nav.history"] }}</a>
+          <span class="link-divider">|</span>
+          <a class="compare-cta" href="/compare">
+            <span class="new-badge">NEW</span>
+            {{ t["nav.compare"] }}
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature Cards Section (Bento Grid) -->
+    <section class="landing-features">
+      <div class="features-container">
+        <h2 class="features-title">{{ t["landing.features.title"] }}</h2>
+        <div class="features-grid">
+          <!-- Feature 1: AI Crawler Access -->
+          <div class="feature-card feature-primary">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                <path d="M12 6v6l4 2"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">{{ t["landing.feature1.title"] }}</h3>
+            <p class="feature-desc">{{ t["landing.feature1.desc"] }}</p>
+            <div class="feature-badges">
+              <span class="feature-badge">GPTBot</span>
+              <span class="feature-badge">ClaudeBot</span>
+              <span class="feature-badge">Perplexity</span>
+            </div>
+          </div>
+
+          <!-- Feature 2: Content Structure -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16M4 12h16M4 18h10"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">{{ t["landing.feature2.title"] }}</h3>
+            <p class="feature-desc">{{ t["landing.feature2.desc"] }}</p>
+          </div>
+
+          <!-- Feature 3: Actionable Recommendations -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">{{ t["landing.feature3.title"] }}</h3>
+            <p class="feature-desc">{{ t["landing.feature3.desc"] }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Social Proof Section -->
+    <section class="landing-social-proof">
+      <div class="social-proof-container">
+        <div class="social-proof-stat">
+          <span class="stat-number" id="stat-pages">10,000+</span>
+          <span class="stat-label">{{ t["landing.stats.pages"] }}</span>
+        </div>
+        <div class="social-proof-divider"></div>
+        <div class="social-proof-stat">
+          <span class="stat-number">100%</span>
+          <span class="stat-label">{{ t["landing.stats.free"] }}</span>
+        </div>
+        <div class="social-proof-divider"></div>
+        <div class="social-proof-stat">
+          <span class="stat-number">4</span>
+          <span class="stat-label">{{ t["landing.stats.crawlers"] }}</span>
+        </div>
+      </div>
+      <p class="social-proof-note">{{ t["landing.stats.note"] }}</p>
+    </section>
+    <div class="loading-overlay" id="loading-overlay" aria-hidden="true">
+      <div class="loading-card">
+        <div class="loading-title">{{ t["loading.title"] }}</div>
+        <div class="loading-bar">
+          <div class="loading-progress" id="loading-progress"></div>
+        </div>
+        <div class="loading-metric">
+          <span id="loading-percent">0%</span>
+          <span class="loading-message" id="loading-message"></span>
+        </div>
+        <div class="loading-disclaimer">
+          <div>{{ t["loading.disclaimer.line1"] }}</div>
+          <div>{{ t["loading.disclaimer.line2"] }}</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const form = document.getElementById("analyze-form");
+      const button = document.getElementById("analyze-button");
+      const overlay = document.getElementById("loading-overlay");
+      const progress = document.getElementById("loading-progress");
+      const percent = document.getElementById("loading-percent");
+      const message = document.getElementById("loading-message");
+      let submitted = false;
+      const messages = [
+        "{{ t['loading.message.1'] }}",
+        "{{ t['loading.message.2'] }}",
+        "{{ t['loading.message.3'] }}",
+        "{{ t['loading.message.4'] }}"
+      ];
+
+      const setMessage = (index) => {
+        message.textContent = messages[index % messages.length];
+      };
+
+      form.addEventListener("submit", (event) => {
+        if (submitted) {
+          return;
+        }
+        event.preventDefault();
+        button.disabled = true;
+        overlay.classList.add("active");
+        overlay.setAttribute("aria-hidden", "false");
+
+        const totalDuration = 5000 + Math.floor(Math.random() * 5000);
+        const holdDuration = 500 + Math.floor(Math.random() * 500);
+        const startTime = Date.now();
+        const messageInterval = 1000 + Math.floor(Math.random() * 500);
+        let messageIndex = 0;
+        setMessage(messageIndex);
+
+        const submitForm = () => {
+          if (submitted) {
+            return;
+          }
+          submitted = true;
+          if (typeof form.requestSubmit === "function") {
+            form.requestSubmit();
+          } else {
+            form.submit();
+          }
+        };
+
+        const messageTimer = setInterval(() => {
+          messageIndex += 1;
+          setMessage(messageIndex);
+        }, messageInterval);
+
+        setTimeout(() => {
+          submitForm();
+        }, totalDuration + holdDuration + 1000);
+        setTimeout(() => {
+          submitForm();
+        }, totalDuration + holdDuration);
+
+        const tick = () => {
+          const elapsed = Date.now() - startTime;
+          const progressRatio = Math.min(elapsed / totalDuration, 1);
+          let value = 0;
+          if (progressRatio <= 0.7) {
+            value = 0.7 * (progressRatio / 0.7);
+          } else if (progressRatio <= 0.9) {
+            value = 0.7 + 0.2 * ((progressRatio - 0.7) / 0.2);
+          } else {
+            value = 0.9 + 0.1 * ((progressRatio - 0.9) / 0.1);
+          }
+          const display = Math.min(Math.round(value * 100), 100);
+          progress.style.width = `${display}%`;
+          percent.textContent = `${display}%`;
+
+          if (progressRatio < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            clearInterval(messageTimer);
+            setTimeout(() => {
+              submitForm();
+            }, holdDuration);
+          }
+        };
+
+        requestAnimationFrame(tick);
+      });
+    </script>
+    <script>
+      // Check for expired token message
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('expired') === '1') {
+        alert('您在首頁停留太久，Token 已過期。頁面已為您刷新，請重新提交。');
+        // Clean URL
+        window.history.replaceState({}, document.title, '/');
+      }
+    </script>
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="/terms">{{ t["footer.terms"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="/privacy">{{ t["footer.privacy"] }}</a>
+        <span class="footer-divider">|</span>
+        <a href="mailto:makiakatsu@gmail.com">{{ t["footer.contact"] }}</a>
+      </div>
+      <div class="footer-copy">© 2026 GEO Checker</div>
+    </footer>
+
+    <script>
+      // Save analysis to localStorage when redirected to results
+      (function() {
+        const form = document.getElementById("analyze-form");
+        const urlInput = document.getElementById("url");
+
+        form.addEventListener("submit", function() {
+          // Store the URL being analyzed
+          sessionStorage.setItem("pending_analysis_url", urlInput.value);
+        });
+      })();
+    </script>
+  </body>
+</html>

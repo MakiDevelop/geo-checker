@@ -1,0 +1,19 @@
+# GEO Checker - AI Crawler Access
+# Allow all AI crawlers to index this site
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: *
+Allow: /
+
+Sitemap: https://gc.ranran.tw/sitemap.xml
