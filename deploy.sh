@@ -2,13 +2,12 @@
 # GEO Checker deployment script
 set -e
 
-cd /opt/abd/ABD
+cd /opt/geo-checker
 
 echo "==> Pulling latest code from GitHub..."
 git pull
 
 echo "==> Building Docker image..."
-cd geo-checker
 docker compose build
 
 echo "==> Starting container..."
