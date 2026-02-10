@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ t["privacy.title"] }} - GEO Checker</title>
     <link rel="stylesheet" href="/static/style.css" />
+    <!-- Google Analytics (GA4) - production only -->
+    <script>
+    if(location.hostname==='gc.ranran.tw'){
+      var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-VHQQ1MP511';document.head.appendChild(s);
+      window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-VHQQ1MP511');
+    }
+    </script>
   </head>
   <body>
     <div class="legal-page">
