@@ -362,7 +362,7 @@ class TestAccessibilityScoring:
         assert score == 40
 
     def test_one_crawler_blocked(self):
-        """One blocked crawler = -10 points."""
+        """One blocked core crawler = -5 points."""
         ai_access = {
             "gptbot": "disallow",
             "claudebot": "allow",
@@ -372,10 +372,10 @@ class TestAccessibilityScoring:
             "x_robots_tag": {"noindex": False, "nofollow": False},
         }
         score = _score_accessibility(ai_access, [])
-        assert score == 30
+        assert score == 35
 
     def test_all_crawlers_blocked(self):
-        """All 4 crawlers blocked = -40 points = 0."""
+        """All 4 legacy crawlers blocked = -20 points."""
         ai_access = {
             "gptbot": "disallow",
             "claudebot": "disallow",
@@ -385,7 +385,7 @@ class TestAccessibilityScoring:
             "x_robots_tag": {"noindex": False, "nofollow": False},
         }
         score = _score_accessibility(ai_access, [])
-        assert score == 0
+        assert score == 20
 
     def test_noindex_penalty(self):
         """noindex = -15 points."""

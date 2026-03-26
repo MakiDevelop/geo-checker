@@ -1251,11 +1251,15 @@ def _assess_freshness(parsed: dict) -> dict:
         from datetime import UTC, datetime
         latest = mod or pub
         try:
-            # Handle ISO format with various suffixes
-            clean = latest.replace("Z", "+00:00")
+            # Normalize date string for fromisoformat
+            clean = latest.strip().replace("Z", "+00:00")
+            # Handle space separator (e.g. "2026-03-26 12:00:00")
+            if "T" not in clean and " " in clean:
+                clean = clean.replace(" ", "T", 1)
             if "T" in clean:
                 dt = datetime.fromisoformat(clean)
             else:
+                # Date-only string (e.g. "2026-03-26")
                 dt = datetime.fromisoformat(
                     clean + "T00:00:00+00:00"
                 )
