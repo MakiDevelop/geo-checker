@@ -1,13 +1,16 @@
-"""GEO rule checks (v2.0.0) - Enhanced with weighted scoring."""
+"""GEO rule checks (v2.1.0) - Enhanced with weighted scoring and unified fetch pipeline."""
 from __future__ import annotations
 
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-import requests
 from bs4 import BeautifulSoup
+
+if TYPE_CHECKING:
+    from src.fetcher.html_fetcher import FetchResult
 
 _AGENT_MAP = {
     "gptbot": "GPTBot",
@@ -28,16 +31,13 @@ def _is_url(source: str) -> bool:
     return parsed.scheme in {"http", "https"}
 
 
-def _fetch_robots_txt(url: str) -> tuple[bool, str]:
-    parsed = urlparse(url)
-    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
-    try:
-        response = requests.get(robots_url, timeout=10)
-        if response.status_code != 200:
-            return False, ""
-        return True, response.text
-    except requests.RequestException:
-        return False, ""
+def _fetch_robots_txt_stub() -> tuple[bool, str]:
+    """Stub fallback when no FetchResult is available.
+
+    Returns empty result instead of making unprotected HTTP requests.
+    All production callers should provide fetch_result with pre-fetched robots.txt.
+    """
+    return False, ""
 
 
 def _parse_robots_txt(text: str) -> list[_RobotsGroup]:
@@ -113,14 +113,18 @@ def _extract_meta_robots(html: str) -> dict:
     }
 
 
-def _extract_x_robots(url: str) -> dict:
-    if not _is_url(url):
-        return {"value": "", "noindex": False, "nofollow": False}
-    try:
-        response = requests.get(url, timeout=10)
-    except requests.RequestException:
-        return {"value": "", "noindex": False, "nofollow": False}
-    header = response.headers.get("X-Robots-Tag", "")
+def _extract_x_robots_from_headers(headers: dict[str, str]) -> dict:
+    """Extract X-Robots-Tag from pre-fetched response headers.
+
+    Uses case-insensitive key lookup since dict(response.headers) preserves
+    original casing which may vary between servers.
+    """
+    # Case-insensitive header lookup
+    header = ""
+    for key, value in headers.items():
+        if key.lower() == "x-robots-tag":
+            header = value
+            break
     header_lower = header.lower()
     return {
         "value": header,
@@ -129,7 +133,17 @@ def _extract_x_robots(url: str) -> dict:
     }
 
 
-def _ai_crawler_access(url: str, html: str) -> dict:
+def _ai_crawler_access(
+    url: str,
+    html: str,
+    *,
+    fetch_result: FetchResult | None = None,
+) -> dict:
+    """Analyze AI crawler access using pre-fetched data when available.
+
+    When fetch_result is provided, robots.txt and response headers are taken
+    from it instead of making additional HTTP requests.
+    """
     if not _is_url(url):
         return {
             "robots_txt_found": False,
@@ -138,21 +152,29 @@ def _ai_crawler_access(url: str, html: str) -> dict:
             "perplexitybot": "unspecified",
             "google_extended": "unspecified",
             "meta_robots": _extract_meta_robots(html),
-            "x_robots_tag": _extract_x_robots(url),
+            "x_robots_tag": _extract_x_robots_from_headers({}),
             "notes": "Non-URL input; robots.txt not checked.",
         }
 
-    found, robots_text = _fetch_robots_txt(url)
+    # Use pre-fetched robots.txt from FetchResult, or return empty (no unprotected HTTP)
+    if fetch_result is not None:
+        found = fetch_result.robots_txt_found
+        robots_text = fetch_result.robots_txt
+        resp_headers = fetch_result.headers
+    else:
+        found, robots_text = _fetch_robots_txt_stub()
+        resp_headers = {}
+
     groups = _parse_robots_txt(robots_text) if found else []
-    parsed = urlparse(url)
-    path = parsed.path or "/"
+    parsed_url = urlparse(url)
+    path = parsed_url.path or "/"
     statuses = {}
     for key, agent in _AGENT_MAP.items():
         matched_groups = _select_group(groups, agent) if groups else []
         statuses[key] = _evaluate_group(matched_groups, path) if matched_groups else "unspecified"
 
     meta_robots = _extract_meta_robots(html)
-    x_robots = _extract_x_robots(url)
+    x_robots = _extract_x_robots_from_headers(resp_headers)
     notes = []
     if not found:
         notes.append("robots.txt not found or unreadable.")
@@ -255,7 +277,10 @@ def _interpretation_rule_hints() -> dict:
     }
 
 
-def _blocker_signal_mapping(components: dict, stats: dict, entities_count: int, meta: dict, headings: list[dict]) -> dict:
+def _blocker_signal_mapping(
+    components: dict, stats: dict, entities_count: int,
+    meta: dict, headings: list[dict],
+) -> dict:
     list_blocks = components.get("list_blocks", 0)
     table_blocks = components.get("table_blocks", 0)
     diversity = _structural_diversity(components)
@@ -264,7 +289,11 @@ def _blocker_signal_mapping(components: dict, stats: dict, entities_count: int, 
 
     return {
         "no_enumeratable_facts": {
-            "signals": ["ul_ol_count < threshold", "table_count == 0", "numeric_statements_ratio low"],
+            "signals": [
+                "ul_ol_count < threshold",
+                "table_count == 0",
+                "numeric_statements_ratio low",
+            ],
             "triggered": list_blocks == 0 and table_blocks == 0,
         },
         "weak_narrative_entry": {
@@ -303,7 +332,10 @@ def _count_numeric_statements(paragraphs: list[str]) -> int:
 
 # Q&A pattern detection (Phase 2)
 _QA_PATTERNS = [
-    re.compile(r"^(what|how|why|when|where|who|which|can|does|is|are|do|will|should)\s+.+\?", re.IGNORECASE),
+    re.compile(
+        r"^(what|how|why|when|where|who|which|can|does|is|are|do|will|should)\s+.+\?",
+        re.IGNORECASE,
+    ),
     re.compile(r"^.+\?\s*$"),  # Any sentence ending with ?
 ]
 
@@ -435,7 +467,10 @@ _UNCLEAR_PRONOUNS = re.compile(
 # Strong opening patterns that help AI understand content quickly
 _STRONG_OPENING_PATTERNS = [
     re.compile(r"^.+\s+(is|are|was|were)\s+.+", re.IGNORECASE),  # Definition-style
-    re.compile(r"^(this|the)\s+(article|guide|post|tutorial|page)\s+", re.IGNORECASE),  # Meta-description
+    re.compile(  # Meta-description
+        r"^(this|the)\s+(article|guide|post|tutorial|page)\s+",
+        re.IGNORECASE,
+    ),
     re.compile(r"^(learn|discover|find out|understand)\s+", re.IGNORECASE),  # Action-oriented
     re.compile(r"^\d+\s+.+", re.IGNORECASE),  # Numbered fact
 ]
@@ -808,7 +843,10 @@ def _calculate_geo_score(parsed: dict, ai_access: dict, blockers: list[str]) -> 
     }
 
 
-def _generate_summary(geo_score: dict, blockers: list[str], ai_access: dict, parsed: dict, draft_mode: bool = False) -> dict:
+def _generate_summary(
+    geo_score: dict, blockers: list[str], ai_access: dict,
+    parsed: dict, draft_mode: bool = False,
+) -> dict:
     """Generate a human-readable summary with priority recommendations."""
     issues = {
         "critical": [],
@@ -1006,12 +1044,21 @@ def _get_priority_fixes(issues: dict, blockers: list[str], parsed: dict) -> list
     return fixes[:5]  # Return top 5 fixes
 
 
-def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) -> dict:
+def check_geo(
+    parsed: dict,
+    html: str,
+    url: str,
+    *,
+    draft_mode: bool = False,
+    fetch_result: FetchResult | None = None,
+) -> dict:
     """Run v2.1.0 GEO checks with weighted scoring and extended metrics.
 
     Args:
         draft_mode: When True, skip accessibility checks (robots.txt, noindex).
                     Used for Ghost draft analysis where these metrics are irrelevant.
+        fetch_result: Pre-fetched result containing headers and robots.txt.
+                      When provided, avoids redundant HTTP requests.
     """
     components = parsed.get("content_surface_size", {}).get("components", {})
     stats = parsed.get("stats", {}).copy()
@@ -1023,7 +1070,10 @@ def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) ->
     stats["numeric_statements"] = _count_numeric_statements(paragraphs)
 
     interpretation = _interpretation_type(components, stats, len(entities))
-    mapping = _blocker_signal_mapping(components, stats, len(entities), parsed.get("meta", {}), headings)
+    mapping = _blocker_signal_mapping(
+        components, stats, len(entities),
+        parsed.get("meta", {}), headings,
+    )
     blockers = [name for name, data in mapping.items() if data.get("triggered")]
 
     # Phase 2: Compute extended metrics
@@ -1037,7 +1087,7 @@ def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) ->
         geo_score = _calculate_geo_score(parsed, ai_access, blockers=[])
         summary = _generate_summary(geo_score, blockers, ai_access, parsed, draft_mode=True)
     else:
-        ai_access = _ai_crawler_access(url, html)
+        ai_access = _ai_crawler_access(url, html, fetch_result=fetch_result)
         geo_score = _calculate_geo_score(parsed, ai_access, blockers)
         summary = _generate_summary(geo_score, blockers, ai_access, parsed)
 

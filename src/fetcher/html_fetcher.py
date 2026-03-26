@@ -1,7 +1,10 @@
 """HTML fetching utilities with SSRF protection."""
+from __future__ import annotations
+
 import socket
+from dataclasses import dataclass, field
 from ipaddress import ip_address
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -9,6 +12,18 @@ from src.fetcher.js_render_fetcher import render_js_content
 
 # Security limits
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10 MB max response size
+
+
+@dataclass
+class FetchResult:
+    """Result of fetching a URL, carrying HTML + metadata for downstream use."""
+
+    html: str
+    headers: dict[str, str] = field(default_factory=dict)
+    final_url: str = ""
+    robots_txt: str = ""
+    robots_txt_found: bool = False
+    is_ghost: bool = False
 
 
 def _is_url(source: str) -> bool:
@@ -27,43 +42,72 @@ def _validate_ip(ip_str: str) -> tuple[bool, str]:
         return False, f"Invalid IP address: {ip_str}"
 
 
-def _resolve_and_validate_url(url: str) -> tuple[str, str, str]:
+def _resolve_and_validate_url(url: str) -> tuple[list[str], str, str]:
     """
-    Resolve URL hostname to IP and validate it's safe.
-    Returns (resolved_ip, hostname, error_message).
+    Resolve URL hostname to IPs and validate ALL are safe.
+    Returns (resolved_ips, hostname, error_message).
 
-    This provides SSRF protection by validating the IP before making requests.
-    Note: There's a theoretical TOCTOU window between validation and request,
-    but this is acceptable for this use case as:
-    - DNS rebinding attacks require attacker-controlled DNS
-    - The attack window is very small (milliseconds)
-    - This is a public analysis tool, not handling sensitive data
+    Uses getaddrinfo() to check both IPv4 and IPv6 addresses.
     """
     try:
         parsed = urlparse(url)
 
         # Only allow http and https
         if parsed.scheme not in {"http", "https"}:
-            return "", "", "Only http and https schemes are allowed"
+            return [], "", "Only http and https schemes are allowed"
 
         hostname = parsed.hostname
         if not hostname:
-            return "", "", "Invalid URL: hostname not found"
+            return [], "", "Invalid URL: hostname not found"
 
-        # Resolve hostname to IP
+        # Resolve hostname to ALL IPs (IPv4 + IPv6)
         try:
-            resolved_ip = socket.gethostbyname(hostname)
+            addrinfos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         except socket.gaierror:
-            return "", "", f"Could not resolve hostname: {hostname}"
+            return [], "", f"Could not resolve hostname: {hostname}"
 
-        # Validate IP is not private/internal
-        is_safe, error_msg = _validate_ip(resolved_ip)
-        if not is_safe:
-            return "", "", error_msg
+        if not addrinfos:
+            return [], "", f"Could not resolve hostname: {hostname}"
 
-        return resolved_ip, hostname, ""
+        # Validate EVERY resolved IP
+        resolved_ips = []
+        seen: set[str] = set()
+        for _family, _type, _proto, _canonname, sockaddr in addrinfos:
+            ip_str: str = sockaddr[0]
+            if ip_str in seen:
+                continue
+            seen.add(ip_str)
+
+            is_safe, error_msg = _validate_ip(ip_str)
+            if not is_safe:
+                return [], "", error_msg
+            resolved_ips.append(ip_str)
+
+        return resolved_ips, hostname, ""
     except Exception as e:
-        return "", "", f"URL validation error: {str(e)}"
+        return [], "", f"URL validation error: {str(e)}"
+
+
+def _fetch_robots_txt(url: str) -> tuple[bool, str]:
+    """Fetch robots.txt for the given URL's domain.
+
+    Uses allow_redirects=False to prevent SSRF via redirect from robots.txt.
+    """
+    parsed = urlparse(url)
+    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+    try:
+        # Validate robots.txt URL (same domain, should be safe)
+        _, _, error = _resolve_and_validate_url(robots_url)
+        if error:
+            return False, ""
+        response = requests.get(robots_url, timeout=10, allow_redirects=False)
+        # Only accept direct 200 responses — redirected robots.txt is uncommon
+        # and could be an SSRF vector
+        if response.status_code != 200:
+            return False, ""
+        return True, response.text
+    except requests.RequestException:
+        return False, ""
 
 
 def _needs_js_render(html: str, content_type: str) -> bool:
@@ -76,33 +120,34 @@ def _needs_js_render(html: str, content_type: str) -> bool:
     return False
 
 
-def fetch_html(source: str) -> str:
+def fetch_html(source: str) -> FetchResult:
     """
-    Fetch raw HTML from a URL.
+    Fetch raw HTML from a URL and return a FetchResult with all metadata.
 
     Security measures:
     - Only accepts http/https URLs (no local file paths)
-    - Validates resolved IP is not private/internal (SSRF protection)
+    - Validates ALL resolved IPs (IPv4+IPv6) are not private/internal (SSRF protection)
     - Disables automatic redirects to validate each redirect target
-    - Re-validates IP after any redirect
+    - Re-validates IP after any redirect using urljoin for normalization
     - Limits response size to prevent memory exhaustion
+    - Fetches robots.txt in the same pipeline to avoid redundant requests
     """
     # Ghost Admin API: bypass normal fetch for configured Ghost URLs
     from src.fetcher.ghost_fetcher import fetch_ghost_post, is_ghost_url
     if is_ghost_url(source):
-        return fetch_ghost_post(source)
+        html = fetch_ghost_post(source)
+        return FetchResult(html=html, final_url=source, is_ghost=True)
 
     # Security: Only accept URLs, never local file paths
     if not _is_url(source):
         raise ValueError("Only http and https URLs are allowed")
 
     # SSRF protection: resolve and validate URL before requesting
-    resolved_ip, hostname, error_msg = _resolve_and_validate_url(source)
+    resolved_ips, hostname, error_msg = _resolve_and_validate_url(source)
     if error_msg:
         raise ValueError(f"SSRF protection: {error_msg}")
 
     # Make request using original URL (required for proper SSL certificate validation)
-    # The IP validation above prevents most SSRF attacks
     response = requests.get(
         source,
         timeout=15,
@@ -114,22 +159,26 @@ def fetch_html(source: str) -> str:
     content_length = response.headers.get("Content-Length")
     if content_length and int(content_length) > MAX_RESPONSE_SIZE:
         response.close()
-        raise ValueError(f"Response too large: {int(content_length)} bytes (max {MAX_RESPONSE_SIZE})")
+        raise ValueError(
+            f"Response too large: {int(content_length)} bytes "
+            f"(max {MAX_RESPONSE_SIZE})"
+        )
+
+    # Track final URL for robots.txt domain
+    current_url = source
 
     # Handle redirects manually with validation
     redirect_count = 0
     max_redirects = 5
     while response.is_redirect and redirect_count < max_redirects:
         redirect_count += 1
-        redirect_url = response.headers.get("Location", "")
+        location = response.headers.get("Location", "")
 
-        if not redirect_url:
+        if not location:
             break
 
-        # Handle relative redirects
-        if not _is_url(redirect_url):
-            parsed_source = urlparse(source)
-            redirect_url = f"{parsed_source.scheme}://{parsed_source.netloc}{redirect_url}"
+        # Normalize redirect URL using urljoin (handles relative paths correctly)
+        redirect_url = urljoin(current_url, location)
 
         # Validate redirect URL (prevents redirect to internal IPs)
         _, _, redirect_error = _resolve_and_validate_url(redirect_url)
@@ -142,15 +191,21 @@ def fetch_html(source: str) -> str:
             allow_redirects=False,
             stream=True,
         )
-        source = redirect_url
+        current_url = redirect_url
 
         # Check size after redirect too
         content_length = response.headers.get("Content-Length")
         if content_length and int(content_length) > MAX_RESPONSE_SIZE:
             response.close()
-            raise ValueError(f"Response too large: {int(content_length)} bytes (max {MAX_RESPONSE_SIZE})")
+            raise ValueError(
+                f"Response too large: {int(content_length)} bytes "
+                f"(max {MAX_RESPONSE_SIZE})"
+            )
 
     response.raise_for_status()
+
+    # Capture response headers for downstream use (X-Robots-Tag etc.)
+    resp_headers = dict(response.headers)
     content_type = response.headers.get("Content-Type", "")
 
     # Read content with size limit (for cases without Content-Length header)
@@ -173,8 +228,17 @@ def fetch_html(source: str) -> str:
 
     if _needs_js_render(html, content_type):
         try:
-            return render_js_content(source)
+            html = render_js_content(current_url)
         except RuntimeError as exc:
             raise RuntimeError("Unable to render JS page within timeout") from exc
 
-    return html
+    # Fetch robots.txt in the same pipeline (avoids separate unprotected request later)
+    robots_found, robots_text = _fetch_robots_txt(current_url)
+
+    return FetchResult(
+        html=html,
+        headers=resp_headers,
+        final_url=current_url,
+        robots_txt=robots_text,
+        robots_txt_found=robots_found,
+    )

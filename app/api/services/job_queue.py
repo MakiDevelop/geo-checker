@@ -71,15 +71,20 @@ class JobQueue:
         job.status = "processing"
 
         try:
-            # Fetch HTML
+            # Fetch HTML (returns FetchResult with headers + robots.txt)
             draft_mode = is_ghost_url(job.url)
-            html = fetch_html(job.url)
+            fetch_result = fetch_html(job.url)
+            # Use final_url for analysis (may differ after redirects)
+            analysis_url = fetch_result.final_url or job.url
 
             # Parse content
-            parsed = parse_content(html, job.url)
+            parsed = parse_content(fetch_result.html, analysis_url)
 
-            # Run GEO analysis
-            geo = check_geo(parsed, html, job.url, draft_mode=draft_mode)
+            # Run GEO analysis (pass fetch_result to avoid redundant HTTP)
+            geo = check_geo(
+                parsed, fetch_result.html, analysis_url,
+                draft_mode=draft_mode, fetch_result=fetch_result,
+            )
 
             # Store result
             job.result = {
