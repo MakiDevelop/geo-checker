@@ -1,0 +1,12 @@
+# Development dependencies (not included in Docker image)
+-r requirements.txt
+
+# Linting
+ruff==0.9.6
+
+# Testing
+pytest==8.3.5
+pytest-asyncio==0.25.0
+
+# LLM Simulator (optional)
+httpx==0.28.1

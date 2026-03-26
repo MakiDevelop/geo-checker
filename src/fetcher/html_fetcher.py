@@ -2,16 +2,24 @@
 from __future__ import annotations
 
 import socket
+import threading
 from dataclasses import dataclass, field
 from ipaddress import ip_address
 from urllib.parse import urljoin, urlparse
 
 import requests
+from cachetools import TTLCache
 
 from src.fetcher.js_render_fetcher import render_js_content
 
 # Security limits
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10 MB max response size
+
+# Domain-level cache for robots.txt and llms.txt (TTL 10 min, max 100 domains)
+# Protected by lock for thread safety (ThreadPoolExecutor in job_queue)
+_cache_lock = threading.Lock()
+_robots_cache: TTLCache[str, tuple[bool, str]] = TTLCache(maxsize=100, ttl=600)
+_llms_cache: TTLCache[str, tuple[bool, str, str]] = TTLCache(maxsize=100, ttl=600)
 
 
 @dataclass
@@ -94,23 +102,34 @@ def _resolve_and_validate_url(url: str) -> tuple[list[str], str, str]:
 def _fetch_robots_txt(url: str) -> tuple[bool, str]:
     """Fetch robots.txt for the given URL's domain.
 
-    Uses allow_redirects=False to prevent SSRF via redirect from robots.txt.
+    Uses domain-level TTL cache (10 min) to avoid repeated fetches.
+    Uses allow_redirects=False to prevent SSRF via redirect.
     """
     parsed = urlparse(url)
+    cache_key = f"{parsed.scheme}://{parsed.netloc}"
+    with _cache_lock:
+        if cache_key in _robots_cache:
+            return _robots_cache[cache_key]
+
     robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
     try:
-        # Validate robots.txt URL (same domain, should be safe)
         _, _, error = _resolve_and_validate_url(robots_url)
         if error:
-            return False, ""
-        response = requests.get(robots_url, timeout=10, allow_redirects=False)
-        # Only accept direct 200 responses — redirected robots.txt is uncommon
-        # and could be an SSRF vector
-        if response.status_code != 200:
-            return False, ""
-        return True, response.text
+            result = (False, "")
+        else:
+            response = requests.get(
+                robots_url, timeout=10, allow_redirects=False,
+            )
+            if response.status_code != 200:
+                result = (False, "")
+            else:
+                result = (True, response.text)
     except requests.RequestException:
-        return False, ""
+        result = (False, "")
+
+    with _cache_lock:
+        _robots_cache[cache_key] = result
+    return result
 
 
 _LLMS_TXT_MAX_SIZE = 100_000  # 100KB limit for llms.txt
@@ -119,11 +138,16 @@ _LLMS_TXT_MAX_SIZE = 100_000  # 100KB limit for llms.txt
 def _fetch_llms_txt(url: str) -> tuple[bool, str, str]:
     """Probe for llms.txt variants at the root of the domain.
 
-    Checks /llms.txt, /llm.txt, /llms-full.txt in order.
+    Uses domain-level TTL cache (10 min).
     Short timeout (3s each) and size-limited to avoid latency DoS.
     Returns (found, content, path_found).
     """
     parsed = urlparse(url)
+    cache_key = f"{parsed.scheme}://{parsed.netloc}"
+    with _cache_lock:
+        if cache_key in _llms_cache:
+            return _llms_cache[cache_key]
+
     base = f"{parsed.scheme}://{parsed.netloc}"
     variants = ["/llms.txt", "/llm.txt", "/llms-full.txt"]
     for path in variants:
@@ -160,10 +184,16 @@ def _fetch_llms_txt(url: str) -> tuple[bool, str, str]:
                 content = b"".join(chunks).decode(
                     "utf-8", errors="replace",
                 )
-                return True, content[:10000], path
+                found = (True, content[:10000], path)
+                with _cache_lock:
+                    _llms_cache[cache_key] = found
+                return found
         except (requests.RequestException, ValueError):
             continue
-    return False, "", ""
+    miss = (False, "", "")
+    with _cache_lock:
+        _llms_cache[cache_key] = miss
+    return miss
 
 
 def _needs_js_render(html: str, content_type: str) -> bool:

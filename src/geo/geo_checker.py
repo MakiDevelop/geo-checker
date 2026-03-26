@@ -1,4 +1,4 @@
-"""GEO rule checks (v2.1.0) - Enhanced with weighted scoring and unified fetch pipeline."""
+"""GEO rule checks (v3.0.0) - Enhanced with 14 AI crawlers, new GEO signals, citation simulator."""
 from __future__ import annotations
 
 import re
