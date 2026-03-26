@@ -12,12 +12,92 @@ from bs4 import BeautifulSoup
 if TYPE_CHECKING:
     from src.fetcher.html_fetcher import FetchResult
 
-_AGENT_MAP = {
-    "gptbot": "GPTBot",
-    "claudebot": "ClaudeBot",
-    "perplexitybot": "PerplexityBot",
-    "google-extended": "Google-Extended",
+# AI Crawler registry: key=robots.txt UA, display=display name, purpose=usage
+# purpose: "search" = AI search/retrieval, "training" = model training,
+#          "both" = search + training
+_AGENT_MAP: dict[str, dict[str, str]] = {
+    # --- Core (always checked, affect score) ---
+    "gptbot": {
+        "display": "GPTBot", "vendor": "OpenAI",
+        "purpose": "both",
+    },
+    "oai-searchbot": {
+        "display": "OAI-SearchBot", "vendor": "OpenAI",
+        "purpose": "search",
+    },
+    "claudebot": {
+        "display": "ClaudeBot", "vendor": "Anthropic",
+        "purpose": "both",
+    },
+    "anthropic-ai": {
+        "display": "anthropic-ai", "vendor": "Anthropic",
+        "purpose": "training",
+    },
+    "perplexitybot": {
+        "display": "PerplexityBot", "vendor": "Perplexity",
+        "purpose": "search",
+    },
+    "google-extended": {
+        "display": "Google-Extended", "vendor": "Google",
+        "purpose": "training",
+    },
+    # --- Extended (checked, reported, minor score impact) ---
+    # Note: applebot-extended is listed here but scored as core
+    # because Apple Intelligence is a major AI platform
+    "applebot-extended": {
+        "display": "Applebot-Extended", "vendor": "Apple",
+        "purpose": "training",
+    },
+    "meta-externalagent": {
+        "display": "Meta-ExternalAgent", "vendor": "Meta",
+        "purpose": "training",
+    },
+    "amazonbot": {
+        "display": "Amazonbot", "vendor": "Amazon",
+        "purpose": "search",
+    },
+    "youbot": {
+        "display": "YouBot", "vendor": "You.com",
+        "purpose": "search",
+    },
+    "ccbot": {
+        "display": "CCBot", "vendor": "Common Crawl",
+        "purpose": "training",
+    },
+    "phindbot": {
+        "display": "PhindBot", "vendor": "Phind",
+        "purpose": "search",
+    },
+    "cohere-ai": {
+        "display": "cohere-ai", "vendor": "Cohere",
+        "purpose": "training",
+    },
+    "bytespider": {
+        "display": "Bytespider", "vendor": "ByteDance",
+        "purpose": "training",
+    },
 }
+
+# Core crawlers that affect the main GEO score
+_CORE_CRAWLERS = {
+    "gptbot", "oai-searchbot", "claudebot", "perplexitybot",
+    "google-extended", "applebot-extended",
+}
+
+# Legacy key mapping for backward compatibility with stored results
+_LEGACY_KEY_MAP = {
+    "google-extended": "google_extended",
+    "oai-searchbot": "oai_searchbot",
+    "applebot-extended": "applebot_extended",
+    "meta-externalagent": "meta_externalagent",
+    "anthropic-ai": "anthropic_ai",
+    "cohere-ai": "cohere_ai",
+}
+
+
+def _result_key(agent_key: str) -> str:
+    """Convert robots.txt UA key to result dict key (replace - with _)."""
+    return _LEGACY_KEY_MAP.get(agent_key, agent_key)
 
 
 @dataclass
@@ -141,22 +221,37 @@ def _ai_crawler_access(
 ) -> dict:
     """Analyze AI crawler access using pre-fetched data when available.
 
-    When fetch_result is provided, robots.txt and response headers are taken
-    from it instead of making additional HTTP requests.
+    Dynamically checks all crawlers in _AGENT_MAP. Returns a dict with:
+    - robots_txt_found: bool
+    - crawlers: dict of {key: {status, display, vendor, purpose}}
+    - Legacy flat keys (gptbot, claudebot, etc.) for backward compat
+    - meta_robots, x_robots_tag, notes
     """
+    default_status = "unspecified"
+
     if not _is_url(url):
-        return {
+        crawlers = {}
+        for key, info in _AGENT_MAP.items():
+            rk = _result_key(key)
+            crawlers[rk] = {
+                "status": default_status,
+                "display": info["display"],
+                "vendor": info["vendor"],
+                "purpose": info["purpose"],
+            }
+        result = {
             "robots_txt_found": False,
-            "gptbot": "unspecified",
-            "claudebot": "unspecified",
-            "perplexitybot": "unspecified",
-            "google_extended": "unspecified",
+            "crawlers": crawlers,
             "meta_robots": _extract_meta_robots(html),
             "x_robots_tag": _extract_x_robots_from_headers({}),
             "notes": "Non-URL input; robots.txt not checked.",
         }
+        # Legacy flat keys
+        for key in _AGENT_MAP:
+            result[_result_key(key)] = default_status
+        return result
 
-    # Use pre-fetched robots.txt from FetchResult, or return empty (no unprotected HTTP)
+    # Use pre-fetched robots.txt or stub
     if fetch_result is not None:
         found = fetch_result.robots_txt_found
         robots_text = fetch_result.robots_txt
@@ -168,44 +263,81 @@ def _ai_crawler_access(
     groups = _parse_robots_txt(robots_text) if found else []
     parsed_url = urlparse(url)
     path = parsed_url.path or "/"
-    statuses = {}
-    for key, agent in _AGENT_MAP.items():
-        matched_groups = _select_group(groups, agent) if groups else []
-        statuses[key] = _evaluate_group(matched_groups, path) if matched_groups else "unspecified"
+
+    # Evaluate each crawler
+    crawlers = {}
+    for key, info in _AGENT_MAP.items():
+        rk = _result_key(key)
+        display = info["display"]
+        if groups:
+            matched = _select_group(groups, display)
+            status = (
+                _evaluate_group(matched, path)
+                if matched else default_status
+            )
+        else:
+            status = default_status
+        crawlers[rk] = {
+            "status": status,
+            "display": display,
+            "vendor": info["vendor"],
+            "purpose": info["purpose"],
+        }
 
     meta_robots = _extract_meta_robots(html)
     x_robots = _extract_x_robots_from_headers(resp_headers)
-    notes = []
+    notes: list[str] = []
     if not found:
         notes.append("robots.txt not found or unreadable.")
     if meta_robots["noindex"] or meta_robots["nofollow"]:
         notes.append("meta robots contains noindex/nofollow.")
     if x_robots["noindex"] or x_robots["nofollow"]:
         notes.append("X-Robots-Tag contains noindex/nofollow.")
-    return {
+
+    result = {
         "robots_txt_found": found,
-        "gptbot": statuses["gptbot"],
-        "claudebot": statuses["claudebot"],
-        "perplexitybot": statuses["perplexitybot"],
-        "google_extended": statuses["google-extended"],
+        "crawlers": crawlers,
         "meta_robots": meta_robots,
         "x_robots_tag": x_robots,
-        "notes": " ".join(notes) if notes else "No blocking signals detected in robots settings.",
+        "notes": (
+            " ".join(notes)
+            if notes
+            else "No blocking signals detected in robots settings."
+        ),
     }
+    # Legacy flat keys for backward compatibility
+    for key in _AGENT_MAP:
+        rk = _result_key(key)
+        result[rk] = crawlers[rk]["status"]
+    return result
 
 
 def _draft_mode_ai_access() -> dict:
     """Return a neutral ai_access result for draft mode (no penalties)."""
-    return {
+    crawlers = {}
+    for key, info in _AGENT_MAP.items():
+        rk = _result_key(key)
+        crawlers[rk] = {
+            "status": "unspecified",
+            "display": info["display"],
+            "vendor": info["vendor"],
+            "purpose": info["purpose"],
+        }
+    result: dict = {
         "robots_txt_found": False,
-        "gptbot": "unspecified",
-        "claudebot": "unspecified",
-        "perplexitybot": "unspecified",
-        "google_extended": "unspecified",
-        "meta_robots": {"content": "", "noindex": False, "nofollow": False},
-        "x_robots_tag": {"value": "", "noindex": False, "nofollow": False},
+        "crawlers": crawlers,
+        "meta_robots": {
+            "content": "", "noindex": False, "nofollow": False,
+        },
+        "x_robots_tag": {
+            "value": "", "noindex": False, "nofollow": False,
+        },
         "notes": "Draft mode: accessibility checks skipped.",
     }
+    # Legacy flat keys
+    for key in _AGENT_MAP:
+        result[_result_key(key)] = "unspecified"
+    return result
 
 
 def _structural_diversity(components: dict) -> int:
@@ -611,18 +743,30 @@ def _score_accessibility(ai_access: dict, blockers: list[str]) -> int:
     """
     Calculate accessibility score (0-40 points).
     Measures how accessible content is to AI crawlers.
+    Core crawlers have higher penalty; extended crawlers minor.
+    Max crawler penalty capped at 30 to leave room for other factors.
     """
     score = 40  # Start with full points
 
-    # Check AI crawler access (-10 per blocked crawler)
-    crawler_statuses = [
-        ai_access.get("gptbot"),
-        ai_access.get("claudebot"),
-        ai_access.get("perplexitybot"),
-        ai_access.get("google_extended"),
-    ]
-    blocked_count = sum(1 for s in crawler_statuses if s == "disallow")
-    score -= blocked_count * 10
+    # Read from new crawlers dict, fallback to legacy flat keys
+    crawlers = ai_access.get("crawlers", {})
+    crawler_penalty = 0
+    if crawlers:
+        for rk, info in crawlers.items():
+            if info.get("status") == "disallow":
+                agent_key = rk.replace("_", "-")
+                if agent_key in _CORE_CRAWLERS:
+                    crawler_penalty += 5
+                else:
+                    crawler_penalty += 1
+    else:
+        # Legacy format fallback (flat keys)
+        for key in ("gptbot", "claudebot", "perplexitybot",
+                     "google_extended"):
+            if ai_access.get(key) == "disallow":
+                crawler_penalty += 5
+    # Cap crawler penalty at 30 to avoid over-saturation
+    score -= min(30, crawler_penalty)
 
     # Check meta robots / X-Robots-Tag
     meta_robots = ai_access.get("meta_robots", {})
@@ -856,16 +1000,25 @@ def _generate_summary(
 
     if not draft_mode:
         # Check critical issues (skip in draft mode)
-        crawler_statuses = [
-            ai_access.get("gptbot"),
-            ai_access.get("claudebot"),
-            ai_access.get("perplexitybot"),
-            ai_access.get("google_extended"),
-        ]
-        blocked_crawlers = [name for name, status in zip(
-            ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"],
-            crawler_statuses
-        ) if status == "disallow"]
+        crawlers = ai_access.get("crawlers", {})
+        if crawlers:
+            blocked_crawlers = [
+                info["display"]
+                for info in crawlers.values()
+                if info.get("status") == "disallow"
+            ]
+        else:
+            # Legacy format fallback
+            legacy_names = {
+                "gptbot": "GPTBot",
+                "claudebot": "ClaudeBot",
+                "perplexitybot": "PerplexityBot",
+                "google_extended": "Google-Extended",
+            }
+            blocked_crawlers = [
+                name for key, name in legacy_names.items()
+                if ai_access.get(key) == "disallow"
+            ]
 
         if blocked_crawlers:
             issues["critical"].append({
