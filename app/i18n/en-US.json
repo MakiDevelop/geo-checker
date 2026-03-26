@@ -4,12 +4,12 @@
   "landing.hero.tagline": "Let AI Understand and Cite Your Content",
   "landing.hero.subtitle": "Check if your pages are ready to be cited by ChatGPT, Claude, Perplexity, and other AI systems",
   "landing.features.title": "What We Check For You",
-  "landing.feature1.title": "AI Crawler Access",
-  "landing.feature1.desc": "Detect whether major AI crawlers (GPTBot, ClaudeBot, PerplexityBot) can access your content through robots.txt and meta tags analysis.",
-  "landing.feature2.title": "Content Structure Analysis",
-  "landing.feature2.desc": "Evaluate your page structure including headings, lists, tables, and Schema.org to help AI better understand and cite your content.",
-  "landing.feature3.title": "Actionable Recommendations",
-  "landing.feature3.desc": "Get specific, prioritized suggestions to improve your GEO score with step-by-step guidance.",
+  "landing.feature1.title": "14 AI Crawler Monitoring",
+  "landing.feature1.desc": "Check access status for GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot, Meta AI, and 8 more AI crawlers — with search/training purpose classification.",
+  "landing.feature2.title": "Full GEO Signal Analysis",
+  "landing.feature2.desc": "E-E-A-T author authority, content freshness, image alt text quality, llms.txt detection, Schema.org structured data — all in one scan.",
+  "landing.feature3.title": "AI Citation Simulator",
+  "landing.feature3.desc": "Simulate how AI search engines would cite your content. Preview likely queries, cited snippets, and citation readiness scores.",
   "landing.stats.pages": "Pages Analyzed",
   "landing.stats.free": "Free",
   "landing.stats.crawlers": "AI Crawlers Monitored",
@@ -321,5 +321,26 @@
   "tooltip.citation_potential": "How likely AI will cite this content. Based on factual statements, data, and authority signals.",
   "tooltip.qa_structure": "Does content follow Q&A format? Q&A structured content is highly favored by AI for direct answers.",
   "tooltip.deep_hierarchy": "Does content have deep heading structure (H3+)? Deep hierarchy signals comprehensive coverage.",
-  "tooltip.schema_types": "Schema.org structured data types found. Helps AI understand content type and context."
+  "tooltip.schema_types": "Schema.org structured data types found. Helps AI understand content type and context.",
+
+  "extended.freshness": "Freshness",
+  "extended.freshness.modified": "Modified",
+  "extended.freshness.published": "Published",
+  "extended.freshness.none": "No date signals found",
+
+  "extended.eeat": "E-E-A-T Signals",
+  "extended.eeat.no_author": "No author identified",
+
+  "extended.images": "Image Alt Text",
+  "extended.images.count": "images",
+  "extended.images.alt_coverage": "with alt text",
+
+  "extended.llms_txt": "llms.txt",
+  "extended.llms_txt.found": "Found",
+  "extended.llms_txt.none": "Not found",
+
+  "extended.citation_sim": "AI Citation Simulation",
+  "extended.citation_sim.query": "Simulated Query",
+  "extended.citation_sim.readiness": "Citation Readiness",
+  "tooltip.citation_sim": "Simulates how AI search engines might cite this page"
 }

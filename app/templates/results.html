@@ -200,68 +200,49 @@
             </h2>
             {% if crawler %}
               <p class="section-intro">{{ t["crawler.intro"] }}</p>
+              {# Dynamic crawler grid — renders all crawlers from backend #}
+              {% set crawlers_dict = crawler.crawlers if crawler.crawlers is defined else {} %}
+              {% if crawlers_dict %}
               <div class="crawler-grid">
+                {% for key, info in crawlers_dict.items() %}
                 <div class="crawler-item">
                   <div class="crawler-info">
-                    <div class="crawler-name">{{ t["crawler.agent.gptbot"] }}</div>
-                    <div class="crawler-company">{{ t["crawler.company.gptbot"] }}</div>
+                    <div class="crawler-name">{{ info.display }}</div>
+                    <div class="crawler-company">{{ info.vendor }}</div>
                   </div>
-                  <div class="crawler-status status-{{ crawler.gptbot }}">
-                    {% if crawler.gptbot == "allow" %}
+                  <div class="crawler-status status-{{ info.status }}">
+                    {% if info.status == "allow" %}
                       <span class="status-icon">&#10004;</span>{{ t["crawler.status.allow"] }}
-                    {% elif crawler.gptbot == "disallow" %}
+                    {% elif info.status == "disallow" %}
                       <span class="status-icon">&#10060;</span>{{ t["crawler.status.disallow"] }}
                     {% else %}
                       <span class="status-icon">&#8212;</span>{{ t["crawler.status.unspecified"] }}
                     {% endif %}
                   </div>
                 </div>
-                <div class="crawler-item">
-                  <div class="crawler-info">
-                    <div class="crawler-name">{{ t["crawler.agent.claudebot"] }}</div>
-                    <div class="crawler-company">{{ t["crawler.company.claudebot"] }}</div>
-                  </div>
-                  <div class="crawler-status status-{{ crawler.claudebot }}">
-                    {% if crawler.claudebot == "allow" %}
-                      <span class="status-icon">&#10004;</span>{{ t["crawler.status.allow"] }}
-                    {% elif crawler.claudebot == "disallow" %}
-                      <span class="status-icon">&#10060;</span>{{ t["crawler.status.disallow"] }}
-                    {% else %}
-                      <span class="status-icon">&#8212;</span>{{ t["crawler.status.unspecified"] }}
-                    {% endif %}
-                  </div>
-                </div>
-                <div class="crawler-item">
-                  <div class="crawler-info">
-                    <div class="crawler-name">{{ t["crawler.agent.perplexitybot"] }}</div>
-                    <div class="crawler-company">{{ t["crawler.company.perplexitybot"] }}</div>
-                  </div>
-                  <div class="crawler-status status-{{ crawler.perplexitybot }}">
-                    {% if crawler.perplexitybot == "allow" %}
-                      <span class="status-icon">&#10004;</span>{{ t["crawler.status.allow"] }}
-                    {% elif crawler.perplexitybot == "disallow" %}
-                      <span class="status-icon">&#10060;</span>{{ t["crawler.status.disallow"] }}
-                    {% else %}
-                      <span class="status-icon">&#8212;</span>{{ t["crawler.status.unspecified"] }}
-                    {% endif %}
-                  </div>
-                </div>
-                <div class="crawler-item">
-                  <div class="crawler-info">
-                    <div class="crawler-name">{{ t["crawler.agent.google_extended"] }}</div>
-                    <div class="crawler-company">{{ t["crawler.company.google_extended"] }}</div>
-                  </div>
-                  <div class="crawler-status status-{{ crawler.google_extended }}">
-                    {% if crawler.google_extended == "allow" %}
-                      <span class="status-icon">&#10004;</span>{{ t["crawler.status.allow"] }}
-                    {% elif crawler.google_extended == "disallow" %}
-                      <span class="status-icon">&#10060;</span>{{ t["crawler.status.disallow"] }}
-                    {% else %}
-                      <span class="status-icon">&#8212;</span>{{ t["crawler.status.unspecified"] }}
-                    {% endif %}
-                  </div>
-                </div>
+                {% endfor %}
               </div>
+              {% else %}
+              {# Legacy fallback: 4 hardcoded crawlers #}
+              <div class="crawler-grid">
+                {% for bot_key, bot_name in [("gptbot", "GPTBot"), ("claudebot", "ClaudeBot"), ("perplexitybot", "PerplexityBot"), ("google_extended", "Google-Extended")] %}
+                <div class="crawler-item">
+                  <div class="crawler-info">
+                    <div class="crawler-name">{{ bot_name }}</div>
+                  </div>
+                  <div class="crawler-status status-{{ crawler[bot_key]|default('unspecified') }}">
+                    {% if crawler[bot_key] == "allow" %}
+                      <span class="status-icon">&#10004;</span>{{ t["crawler.status.allow"] }}
+                    {% elif crawler[bot_key] == "disallow" %}
+                      <span class="status-icon">&#10060;</span>{{ t["crawler.status.disallow"] }}
+                    {% else %}
+                      <span class="status-icon">&#8212;</span>{{ t["crawler.status.unspecified"] }}
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
               <div class="meta-grid" style="margin-top: 16px;">
                 <div class="meta-label">{{ t["crawler.robots_txt"] }}</div>
                 <div>
@@ -487,7 +468,113 @@
                   {% endif %}
                 </div>
               </div>
+
+              <!-- Freshness (Phase 3) -->
+              {% set fresh = ext.freshness if ext.freshness is defined else {} %}
+              <div class="extended-item{% if fresh.score is defined and fresh.score >= 3 %} extended-highlight{% endif %}">
+                <div class="extended-label">{{ t.get("extended.freshness", "Freshness") }}</div>
+                <div class="extended-value">
+                  {% if fresh.has_dates %}
+                    <span class="status-icon">&#10004;</span>
+                    {% if fresh.date_modified %}{{ t.get("extended.freshness.modified", "Modified") }}: {{ fresh.date_modified[:10] }}
+                    {% elif fresh.date_published %}{{ t.get("extended.freshness.published", "Published") }}: {{ fresh.date_published[:10] }}
+                    {% endif %}
+                  {% else %}
+                    <span class="status-warn">&#9888;</span> {{ t.get("extended.freshness.none", "No date signals") }}
+                  {% endif %}
+                </div>
+                <div class="extended-score">{{ fresh.score|default(0) }}/{{ fresh.max_score|default(4) }}</div>
+              </div>
+
+              <!-- E-E-A-T (Phase 3) -->
+              {% set eeat = ext.eeat if ext.eeat is defined else {} %}
+              <div class="extended-item{% if eeat.score is defined and eeat.score >= 4 %} extended-highlight{% endif %}">
+                <div class="extended-label">{{ t.get("extended.eeat", "E-E-A-T") }}</div>
+                <div class="extended-value">
+                  {% if eeat.author_name %}
+                    <span class="status-icon">&#10004;</span> {{ eeat.author_name }}
+                  {% else %}
+                    <span class="status-warn">&#9888;</span> {{ t.get("extended.eeat.no_author", "No author identified") }}
+                  {% endif %}
+                </div>
+                <div class="extended-score">{{ eeat.score|default(0) }}/{{ eeat.max_score|default(6) }}</div>
+                {% if eeat.signals %}
+                <div class="extended-signals">
+                  {% for signal in eeat.signals %}
+                  <span class="signal-badge">{{ signal }}</span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Image Alt Text (Phase 3) -->
+              {% set imgs = ext.image_quality if ext.image_quality is defined else {} %}
+              {% if imgs.total_images is defined and imgs.total_images > 0 %}
+              <div class="extended-item">
+                <div class="extended-label">{{ t.get("extended.images", "Image Alt Text") }}</div>
+                <div class="extended-value">
+                  {{ imgs.total_images }} {{ t.get("extended.images.count", "images") }},
+                  {{ (imgs.alt_coverage * 100)|round|int }}% {{ t.get("extended.images.alt_coverage", "with alt text") }}
+                </div>
+                <div class="extended-score">{{ imgs.score|default(0) }}/{{ imgs.max_score|default(3) }}</div>
+              </div>
+              {% endif %}
+
+              <!-- llms.txt (Phase 3) -->
+              {% set llms = ext.llms_txt if ext.llms_txt is defined else {} %}
+              <div class="extended-item">
+                <div class="extended-label">{{ t.get("extended.llms_txt", "llms.txt") }}</div>
+                <div class="extended-value">
+                  {% if llms.found %}
+                    <span class="status-icon">&#10004;</span> {{ t.get("extended.llms_txt.found", "Found") }} ({{ llms.path }})
+                  {% else %}
+                    <span class="status-muted">—</span> {{ t.get("extended.llms_txt.none", "Not found") }}
+                  {% endif %}
+                </div>
+                <div class="extended-score">{{ llms.score|default(0) }}/{{ llms.max_score|default(2) }}</div>
+              </div>
             </div>
+
+            <!-- Citation Simulation (Phase 4) -->
+            {% set csim = ext.citation_simulation if ext.citation_simulation is defined else {} %}
+            {% if csim and csim.cited_snippets is defined %}
+            <div style="margin-top: 20px;">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
+                {{ t.get("extended.citation_sim", "AI Citation Simulation") }}
+                <span class="info-tip" data-tip="{{ t.get('tooltip.citation_sim', 'Simulates how AI search engines might cite this page') }}">?</span>
+              </h3>
+              {% if csim.mock_query %}
+              <div style="background: #f0f4ff; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+                <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 6px;">
+                  {{ t.get("extended.citation_sim.query", "Simulated Query") }}
+                </div>
+                <div style="font-weight: 600;">{{ csim.mock_query }}</div>
+              </div>
+              {% endif %}
+              {% if csim.cited_snippets %}
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                {% for snippet in csim.cited_snippets[:3] %}
+                <div class="quotable-item">
+                  <span class="quotable-type">[{{ loop.index }}]</span>
+                  <span class="quotable-text">{{ snippet.text[:200] }}{% if snippet.text|length > 200 %}...{% endif %}</span>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% set cov = csim.coverage if csim.coverage is defined else {} %}
+              {% if cov %}
+              <div style="margin-top: 12px; display: flex; gap: 16px; align-items: center;">
+                <div class="extended-item extended-highlight" style="flex: 1;">
+                  <div class="extended-label">{{ t.get("extended.citation_sim.readiness", "Citation Readiness") }}</div>
+                  <div class="extended-value citation-{{ cov.readiness|default('minimal') }}">
+                    {{ cov.readiness|default('minimal')|capitalize }}
+                  </div>
+                  <div class="extended-score">{{ cov.score|default(0) }}/{{ cov.max_score|default(7) }}</div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
           </div>
           {% endif %}
 
