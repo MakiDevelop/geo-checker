@@ -189,9 +189,13 @@ def analyze(
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         result_id = uuid4().hex
         draft_mode = is_ghost_url(url)
-        html = fetch_html(url)
-        result = parse_content(html, url)
-        result["geo"] = check_geo(result, html, url, draft_mode=draft_mode)
+        fetch_result = fetch_html(url)
+        analysis_url = fetch_result.final_url or url
+        result = parse_content(fetch_result.html, analysis_url)
+        result["geo"] = check_geo(
+            result, fetch_result.html, analysis_url,
+            draft_mode=draft_mode, fetch_result=fetch_result,
+        )
         result["analysis_id"] = result_id
         result["created_at"] = datetime.now(UTC).isoformat()
         (RESULTS_DIR / f"{result_id}.json").write_text(
@@ -205,7 +209,10 @@ def analyze(
         if isinstance(e, GhostAPIError):
             error_message = f"Ghost API: {error_message}"
         elif "SSL" in error_message or "certificate" in error_message.lower():
-            error_message = f"SSL certificate error for {url}. The target site may have an invalid certificate."
+            error_message = (
+                f"SSL certificate error for {url}. "
+                "The target site may have an invalid certificate."
+            )
         elif "Connection" in error_message or "Timeout" in error_message:
             error_message = f"Could not connect to {url}. Please check if the URL is accessible."
         else:
@@ -384,9 +391,13 @@ def compare_submit(
     for item in urls:
         try:
             draft_mode = is_ghost_url(item["url"])
-            html = fetch_html(item["url"])
-            parsed = parse_content(html, item["url"])
-            geo = check_geo(parsed, html, item["url"], draft_mode=draft_mode)
+            fetch_result = fetch_html(item["url"])
+            analysis_url = fetch_result.final_url or item["url"]
+            parsed = parse_content(fetch_result.html, analysis_url)
+            geo = check_geo(
+                parsed, fetch_result.html, analysis_url,
+                draft_mode=draft_mode, fetch_result=fetch_result,
+            )
             results[item["id"]] = {
                 "url": item["url"],
                 "geo": geo,

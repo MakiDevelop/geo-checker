@@ -111,6 +111,16 @@ class APISettings:
 
 
 @dataclass
+class AISimulatorSettings:
+    """Settings for AI Citation Simulator."""
+    # LLM mode (optional, requires API key)
+    enabled: bool = False
+    api_key: str = ""
+    model: str = "gpt-4o-mini"
+    base_url: str = "https://api.openai.com/v1"
+
+
+@dataclass
 class GhostSettings:
     """Settings for Ghost Admin API integration."""
     url: str = ""  # e.g. "https://marketing.91app.com"
@@ -128,6 +138,9 @@ class Settings:
     security: SecuritySettings = field(default_factory=SecuritySettings)
     api: APISettings = field(default_factory=APISettings)
     ghost: GhostSettings = field(default_factory=GhostSettings)
+    ai_simulator: AISimulatorSettings = field(
+        default_factory=AISimulatorSettings,
+    )
 
     # Application settings
     debug: bool = False
@@ -160,6 +173,15 @@ class Settings:
             self.api.job_max_workers = int(job_workers)
         if cors := os.environ.get("GEO_API_CORS_ORIGINS"):
             self.api.cors_origins = [o.strip() for o in cors.split(",")]
+
+        # AI Simulator
+        if ai_key := os.environ.get("GEO_AI_API_KEY"):
+            self.ai_simulator.api_key = ai_key
+            self.ai_simulator.enabled = True
+        if ai_model := os.environ.get("GEO_AI_MODEL"):
+            self.ai_simulator.model = ai_model
+        if ai_url := os.environ.get("GEO_AI_BASE_URL"):
+            self.ai_simulator.base_url = ai_url
 
         # Ghost Admin API
         if ghost_url := os.environ.get("GHOST_URL"):

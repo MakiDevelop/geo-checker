@@ -1,0 +1,44 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+*.egg-info
+dist
+build
+
+# Development
+.pytest_cache
+.ruff_cache
+htmlcov
+.coverage
+tests
+.claude
+.agentic-memory.db
+CLAUDE.md
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Environment
+.env
+.env.*
+
+# Data (mounted as volume, not baked into image)
+data
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!requirements.txt
+LICENSE

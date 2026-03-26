@@ -1,20 +1,103 @@
-"""GEO rule checks (v2.0.0) - Enhanced with weighted scoring."""
+"""GEO rule checks (v3.0.0) - Enhanced with 14 AI crawlers, new GEO signals, citation simulator."""
 from __future__ import annotations
 
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-import requests
 from bs4 import BeautifulSoup
 
-_AGENT_MAP = {
-    "gptbot": "GPTBot",
-    "claudebot": "ClaudeBot",
-    "perplexitybot": "PerplexityBot",
-    "google-extended": "Google-Extended",
+if TYPE_CHECKING:
+    from src.fetcher.html_fetcher import FetchResult
+
+# AI Crawler registry: key=robots.txt UA, display=display name, purpose=usage
+# purpose: "search" = AI search/retrieval, "training" = model training,
+#          "both" = search + training
+_AGENT_MAP: dict[str, dict[str, str]] = {
+    # --- Core (always checked, affect score) ---
+    "gptbot": {
+        "display": "GPTBot", "vendor": "OpenAI",
+        "purpose": "both",
+    },
+    "oai-searchbot": {
+        "display": "OAI-SearchBot", "vendor": "OpenAI",
+        "purpose": "search",
+    },
+    "claudebot": {
+        "display": "ClaudeBot", "vendor": "Anthropic",
+        "purpose": "both",
+    },
+    "anthropic-ai": {
+        "display": "anthropic-ai", "vendor": "Anthropic",
+        "purpose": "training",
+    },
+    "perplexitybot": {
+        "display": "PerplexityBot", "vendor": "Perplexity",
+        "purpose": "search",
+    },
+    "google-extended": {
+        "display": "Google-Extended", "vendor": "Google",
+        "purpose": "training",
+    },
+    # --- Extended (checked, reported, minor score impact) ---
+    # Note: applebot-extended is listed here but scored as core
+    # because Apple Intelligence is a major AI platform
+    "applebot-extended": {
+        "display": "Applebot-Extended", "vendor": "Apple",
+        "purpose": "training",
+    },
+    "meta-externalagent": {
+        "display": "Meta-ExternalAgent", "vendor": "Meta",
+        "purpose": "training",
+    },
+    "amazonbot": {
+        "display": "Amazonbot", "vendor": "Amazon",
+        "purpose": "search",
+    },
+    "youbot": {
+        "display": "YouBot", "vendor": "You.com",
+        "purpose": "search",
+    },
+    "ccbot": {
+        "display": "CCBot", "vendor": "Common Crawl",
+        "purpose": "training",
+    },
+    "phindbot": {
+        "display": "PhindBot", "vendor": "Phind",
+        "purpose": "search",
+    },
+    "cohere-ai": {
+        "display": "cohere-ai", "vendor": "Cohere",
+        "purpose": "training",
+    },
+    "bytespider": {
+        "display": "Bytespider", "vendor": "ByteDance",
+        "purpose": "training",
+    },
 }
+
+# Core crawlers that affect the main GEO score
+_CORE_CRAWLERS = {
+    "gptbot", "oai-searchbot", "claudebot", "perplexitybot",
+    "google-extended", "applebot-extended",
+}
+
+# Legacy key mapping for backward compatibility with stored results
+_LEGACY_KEY_MAP = {
+    "google-extended": "google_extended",
+    "oai-searchbot": "oai_searchbot",
+    "applebot-extended": "applebot_extended",
+    "meta-externalagent": "meta_externalagent",
+    "anthropic-ai": "anthropic_ai",
+    "cohere-ai": "cohere_ai",
+}
+
+
+def _result_key(agent_key: str) -> str:
+    """Convert robots.txt UA key to result dict key (replace - with _)."""
+    return _LEGACY_KEY_MAP.get(agent_key, agent_key)
 
 
 @dataclass
@@ -28,16 +111,13 @@ def _is_url(source: str) -> bool:
     return parsed.scheme in {"http", "https"}
 
 
-def _fetch_robots_txt(url: str) -> tuple[bool, str]:
-    parsed = urlparse(url)
-    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
-    try:
-        response = requests.get(robots_url, timeout=10)
-        if response.status_code != 200:
-            return False, ""
-        return True, response.text
-    except requests.RequestException:
-        return False, ""
+def _fetch_robots_txt_stub() -> tuple[bool, str]:
+    """Stub fallback when no FetchResult is available.
+
+    Returns empty result instead of making unprotected HTTP requests.
+    All production callers should provide fetch_result with pre-fetched robots.txt.
+    """
+    return False, ""
 
 
 def _parse_robots_txt(text: str) -> list[_RobotsGroup]:
@@ -113,14 +193,18 @@ def _extract_meta_robots(html: str) -> dict:
     }
 
 
-def _extract_x_robots(url: str) -> dict:
-    if not _is_url(url):
-        return {"value": "", "noindex": False, "nofollow": False}
-    try:
-        response = requests.get(url, timeout=10)
-    except requests.RequestException:
-        return {"value": "", "noindex": False, "nofollow": False}
-    header = response.headers.get("X-Robots-Tag", "")
+def _extract_x_robots_from_headers(headers: dict[str, str]) -> dict:
+    """Extract X-Robots-Tag from pre-fetched response headers.
+
+    Uses case-insensitive key lookup since dict(response.headers) preserves
+    original casing which may vary between servers.
+    """
+    # Case-insensitive header lookup
+    header = ""
+    for key, value in headers.items():
+        if key.lower() == "x-robots-tag":
+            header = value
+            break
     header_lower = header.lower()
     return {
         "value": header,
@@ -129,61 +213,131 @@ def _extract_x_robots(url: str) -> dict:
     }
 
 
-def _ai_crawler_access(url: str, html: str) -> dict:
+def _ai_crawler_access(
+    url: str,
+    html: str,
+    *,
+    fetch_result: FetchResult | None = None,
+) -> dict:
+    """Analyze AI crawler access using pre-fetched data when available.
+
+    Dynamically checks all crawlers in _AGENT_MAP. Returns a dict with:
+    - robots_txt_found: bool
+    - crawlers: dict of {key: {status, display, vendor, purpose}}
+    - Legacy flat keys (gptbot, claudebot, etc.) for backward compat
+    - meta_robots, x_robots_tag, notes
+    """
+    default_status = "unspecified"
+
     if not _is_url(url):
-        return {
+        crawlers = {}
+        for key, info in _AGENT_MAP.items():
+            rk = _result_key(key)
+            crawlers[rk] = {
+                "status": default_status,
+                "display": info["display"],
+                "vendor": info["vendor"],
+                "purpose": info["purpose"],
+            }
+        result = {
             "robots_txt_found": False,
-            "gptbot": "unspecified",
-            "claudebot": "unspecified",
-            "perplexitybot": "unspecified",
-            "google_extended": "unspecified",
+            "crawlers": crawlers,
             "meta_robots": _extract_meta_robots(html),
-            "x_robots_tag": _extract_x_robots(url),
+            "x_robots_tag": _extract_x_robots_from_headers({}),
             "notes": "Non-URL input; robots.txt not checked.",
         }
+        # Legacy flat keys
+        for key in _AGENT_MAP:
+            result[_result_key(key)] = default_status
+        return result
 
-    found, robots_text = _fetch_robots_txt(url)
+    # Use pre-fetched robots.txt or stub
+    if fetch_result is not None:
+        found = fetch_result.robots_txt_found
+        robots_text = fetch_result.robots_txt
+        resp_headers = fetch_result.headers
+    else:
+        found, robots_text = _fetch_robots_txt_stub()
+        resp_headers = {}
+
     groups = _parse_robots_txt(robots_text) if found else []
-    parsed = urlparse(url)
-    path = parsed.path or "/"
-    statuses = {}
-    for key, agent in _AGENT_MAP.items():
-        matched_groups = _select_group(groups, agent) if groups else []
-        statuses[key] = _evaluate_group(matched_groups, path) if matched_groups else "unspecified"
+    parsed_url = urlparse(url)
+    path = parsed_url.path or "/"
+
+    # Evaluate each crawler
+    crawlers = {}
+    for key, info in _AGENT_MAP.items():
+        rk = _result_key(key)
+        display = info["display"]
+        if groups:
+            matched = _select_group(groups, display)
+            status = (
+                _evaluate_group(matched, path)
+                if matched else default_status
+            )
+        else:
+            status = default_status
+        crawlers[rk] = {
+            "status": status,
+            "display": display,
+            "vendor": info["vendor"],
+            "purpose": info["purpose"],
+        }
 
     meta_robots = _extract_meta_robots(html)
-    x_robots = _extract_x_robots(url)
-    notes = []
+    x_robots = _extract_x_robots_from_headers(resp_headers)
+    notes: list[str] = []
     if not found:
         notes.append("robots.txt not found or unreadable.")
     if meta_robots["noindex"] or meta_robots["nofollow"]:
         notes.append("meta robots contains noindex/nofollow.")
     if x_robots["noindex"] or x_robots["nofollow"]:
         notes.append("X-Robots-Tag contains noindex/nofollow.")
-    return {
+
+    result = {
         "robots_txt_found": found,
-        "gptbot": statuses["gptbot"],
-        "claudebot": statuses["claudebot"],
-        "perplexitybot": statuses["perplexitybot"],
-        "google_extended": statuses["google-extended"],
+        "crawlers": crawlers,
         "meta_robots": meta_robots,
         "x_robots_tag": x_robots,
-        "notes": " ".join(notes) if notes else "No blocking signals detected in robots settings.",
+        "notes": (
+            " ".join(notes)
+            if notes
+            else "No blocking signals detected in robots settings."
+        ),
     }
+    # Legacy flat keys for backward compatibility
+    for key in _AGENT_MAP:
+        rk = _result_key(key)
+        result[rk] = crawlers[rk]["status"]
+    return result
 
 
 def _draft_mode_ai_access() -> dict:
     """Return a neutral ai_access result for draft mode (no penalties)."""
-    return {
+    crawlers = {}
+    for key, info in _AGENT_MAP.items():
+        rk = _result_key(key)
+        crawlers[rk] = {
+            "status": "unspecified",
+            "display": info["display"],
+            "vendor": info["vendor"],
+            "purpose": info["purpose"],
+        }
+    result: dict = {
         "robots_txt_found": False,
-        "gptbot": "unspecified",
-        "claudebot": "unspecified",
-        "perplexitybot": "unspecified",
-        "google_extended": "unspecified",
-        "meta_robots": {"content": "", "noindex": False, "nofollow": False},
-        "x_robots_tag": {"value": "", "noindex": False, "nofollow": False},
+        "crawlers": crawlers,
+        "meta_robots": {
+            "content": "", "noindex": False, "nofollow": False,
+        },
+        "x_robots_tag": {
+            "value": "", "noindex": False, "nofollow": False,
+        },
         "notes": "Draft mode: accessibility checks skipped.",
     }
+    # Legacy flat keys
+    for key in _AGENT_MAP:
+        result[_result_key(key)] = "unspecified"
+    return result
 
 
 def _structural_diversity(components: dict) -> int:
@@ -255,7 +409,10 @@ def _interpretation_rule_hints() -> dict:
     }
 
 
-def _blocker_signal_mapping(components: dict, stats: dict, entities_count: int, meta: dict, headings: list[dict]) -> dict:
+def _blocker_signal_mapping(
+    components: dict, stats: dict, entities_count: int,
+    meta: dict, headings: list[dict],
+) -> dict:
     list_blocks = components.get("list_blocks", 0)
     table_blocks = components.get("table_blocks", 0)
     diversity = _structural_diversity(components)
@@ -264,7 +421,11 @@ def _blocker_signal_mapping(components: dict, stats: dict, entities_count: int, 
 
     return {
         "no_enumeratable_facts": {
-            "signals": ["ul_ol_count < threshold", "table_count == 0", "numeric_statements_ratio low"],
+            "signals": [
+                "ul_ol_count < threshold",
+                "table_count == 0",
+                "numeric_statements_ratio low",
+            ],
             "triggered": list_blocks == 0 and table_blocks == 0,
         },
         "weak_narrative_entry": {
@@ -303,7 +464,10 @@ def _count_numeric_statements(paragraphs: list[str]) -> int:
 
 # Q&A pattern detection (Phase 2)
 _QA_PATTERNS = [
-    re.compile(r"^(what|how|why|when|where|who|which|can|does|is|are|do|will|should)\s+.+\?", re.IGNORECASE),
+    re.compile(
+        r"^(what|how|why|when|where|who|which|can|does|is|are|do|will|should)\s+.+\?",
+        re.IGNORECASE,
+    ),
     re.compile(r"^.+\?\s*$"),  # Any sentence ending with ?
 ]
 
@@ -435,7 +599,10 @@ _UNCLEAR_PRONOUNS = re.compile(
 # Strong opening patterns that help AI understand content quickly
 _STRONG_OPENING_PATTERNS = [
     re.compile(r"^.+\s+(is|are|was|were)\s+.+", re.IGNORECASE),  # Definition-style
-    re.compile(r"^(this|the)\s+(article|guide|post|tutorial|page)\s+", re.IGNORECASE),  # Meta-description
+    re.compile(  # Meta-description
+        r"^(this|the)\s+(article|guide|post|tutorial|page)\s+",
+        re.IGNORECASE,
+    ),
     re.compile(r"^(learn|discover|find out|understand)\s+", re.IGNORECASE),  # Action-oriented
     re.compile(r"^\d+\s+.+", re.IGNORECASE),  # Numbered fact
 ]
@@ -576,18 +743,30 @@ def _score_accessibility(ai_access: dict, blockers: list[str]) -> int:
     """
     Calculate accessibility score (0-40 points).
     Measures how accessible content is to AI crawlers.
+    Core crawlers have higher penalty; extended crawlers minor.
+    Max crawler penalty capped at 30 to leave room for other factors.
     """
     score = 40  # Start with full points
 
-    # Check AI crawler access (-10 per blocked crawler)
-    crawler_statuses = [
-        ai_access.get("gptbot"),
-        ai_access.get("claudebot"),
-        ai_access.get("perplexitybot"),
-        ai_access.get("google_extended"),
-    ]
-    blocked_count = sum(1 for s in crawler_statuses if s == "disallow")
-    score -= blocked_count * 10
+    # Read from new crawlers dict, fallback to legacy flat keys
+    crawlers = ai_access.get("crawlers", {})
+    crawler_penalty = 0
+    if crawlers:
+        for rk, info in crawlers.items():
+            if info.get("status") == "disallow":
+                agent_key = rk.replace("_", "-")
+                if agent_key in _CORE_CRAWLERS:
+                    crawler_penalty += 5
+                else:
+                    crawler_penalty += 1
+    else:
+        # Legacy format fallback (flat keys)
+        for key in ("gptbot", "claudebot", "perplexitybot",
+                     "google_extended"):
+            if ai_access.get(key) == "disallow":
+                crawler_penalty += 5
+    # Cap crawler penalty at 30 to avoid over-saturation
+    score -= min(30, crawler_penalty)
 
     # Check meta robots / X-Robots-Tag
     meta_robots = ai_access.get("meta_robots", {})
@@ -808,7 +987,10 @@ def _calculate_geo_score(parsed: dict, ai_access: dict, blockers: list[str]) -> 
     }
 
 
-def _generate_summary(geo_score: dict, blockers: list[str], ai_access: dict, parsed: dict, draft_mode: bool = False) -> dict:
+def _generate_summary(
+    geo_score: dict, blockers: list[str], ai_access: dict,
+    parsed: dict, draft_mode: bool = False,
+) -> dict:
     """Generate a human-readable summary with priority recommendations."""
     issues = {
         "critical": [],
@@ -818,16 +1000,25 @@ def _generate_summary(geo_score: dict, blockers: list[str], ai_access: dict, par
 
     if not draft_mode:
         # Check critical issues (skip in draft mode)
-        crawler_statuses = [
-            ai_access.get("gptbot"),
-            ai_access.get("claudebot"),
-            ai_access.get("perplexitybot"),
-            ai_access.get("google_extended"),
-        ]
-        blocked_crawlers = [name for name, status in zip(
-            ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"],
-            crawler_statuses
-        ) if status == "disallow"]
+        crawlers = ai_access.get("crawlers", {})
+        if crawlers:
+            blocked_crawlers = [
+                info["display"]
+                for info in crawlers.values()
+                if info.get("status") == "disallow"
+            ]
+        else:
+            # Legacy format fallback
+            legacy_names = {
+                "gptbot": "GPTBot",
+                "claudebot": "ClaudeBot",
+                "perplexitybot": "PerplexityBot",
+                "google_extended": "Google-Extended",
+            }
+            blocked_crawlers = [
+                name for key, name in legacy_names.items()
+                if ai_access.get(key) == "disallow"
+            ]
 
         if blocked_crawlers:
             issues["critical"].append({
@@ -917,9 +1108,32 @@ def _generate_summary(geo_score: dict, blockers: list[str], ai_access: dict, par
 
     # Phase 3: Citation potential
     link_quality = _assess_link_quality(parsed)
-    citation_potential = _calculate_citation_potential(parsed, qa_structure, link_quality)
+    citation_potential = _calculate_citation_potential(
+        parsed, qa_structure, link_quality,
+    )
     if citation_potential.get("level") == "high":
         issues["good"].append({"key": "high_citation_potential"})
+
+    # Phase 3 v2: New signal assessments
+    freshness_info = parsed.get("freshness", {})
+    if freshness_info.get("has_dates"):
+        issues["good"].append({"key": "has_date_signals"})
+    else:
+        issues["warning"].append({"key": "no_date_signals"})
+
+    author_info = parsed.get("author_info", {})
+    if author_info.get("has_author"):
+        issues["good"].append({"key": "author_identified"})
+    else:
+        issues["warning"].append({"key": "no_author"})
+
+    images_info = parsed.get("images", {})
+    if images_info.get("total", 0) > 0:
+        alt_cov = images_info.get("alt_coverage", 0)
+        if alt_cov < 0.5:
+            issues["warning"].append({"key": "poor_alt_text"})
+        elif alt_cov >= 0.9:
+            issues["good"].append({"key": "good_alt_text"})
 
     # Generate one-line summary
     grade = geo_score.get("grade", "C")
@@ -1002,16 +1216,178 @@ def _get_priority_fixes(issues: dict, blockers: list[str], parsed: dict) -> list
                 "action": "reduce_pronouns",
                 "impact": "low",
             })
+        elif issue.get("key") == "no_date_signals":
+            fixes.append({
+                "priority": "suggested",
+                "action": "add_date_metadata",
+                "impact": "medium",
+            })
+        elif issue.get("key") == "no_author":
+            fixes.append({
+                "priority": "recommended",
+                "action": "add_author_info",
+                "impact": "medium",
+            })
+        elif issue.get("key") == "poor_alt_text":
+            fixes.append({
+                "priority": "suggested",
+                "action": "improve_alt_text",
+                "impact": "low",
+            })
 
     return fixes[:5]  # Return top 5 fixes
 
 
-def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) -> dict:
+def _assess_freshness(parsed: dict) -> dict:
+    """Assess content freshness signals."""
+    freshness = parsed.get("freshness", {})
+    pub = freshness.get("date_published", "")
+    mod = freshness.get("date_modified", "")
+
+    score = 0
+    if pub or mod:
+        score += 1  # Has any date signal
+        # Try to parse and check recency
+        from datetime import UTC, datetime
+        latest = mod or pub
+        try:
+            # Normalize date string for fromisoformat
+            clean = latest.strip().replace("Z", "+00:00")
+            # Handle space separator (e.g. "2026-03-26 12:00:00")
+            if "T" not in clean and " " in clean:
+                clean = clean.replace(" ", "T", 1)
+            if "T" in clean:
+                dt = datetime.fromisoformat(clean)
+            else:
+                # Date-only string (e.g. "2026-03-26")
+                dt = datetime.fromisoformat(
+                    clean + "T00:00:00+00:00"
+                )
+            # Ensure timezone-aware comparison
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            now = datetime.now(UTC)
+            days_ago = (now - dt).days
+            # Reject future dates (likely bad metadata)
+            if days_ago < 0:
+                pass  # Don't give freshness credit
+            elif days_ago <= 30:
+                score += 3  # Very fresh
+            elif days_ago <= 90:
+                score += 2  # Reasonably fresh
+            elif days_ago <= 365:
+                score += 1  # Within a year
+        except (ValueError, TypeError, OverflowError):
+            pass  # Can't parse date, keep base score
+
+    return {
+        "date_published": pub,
+        "date_modified": mod,
+        "has_dates": freshness.get("has_dates", False),
+        "score": score,
+        "max_score": 4,
+    }
+
+
+def _assess_eeat(parsed: dict) -> dict:
+    """Assess E-E-A-T (Experience, Expertise, Authority, Trust) signals."""
+    author = parsed.get("author_info", {})
+    schema = parsed.get("schema_org", {})
+
+    score = 0
+    signals: list[str] = []
+
+    if author.get("has_author"):
+        score += 2
+        signals.append("author_identified")
+    if author.get("has_author_bio"):
+        score += 1
+        signals.append("author_bio")
+    if author.get("has_person_schema"):
+        score += 1
+        signals.append("person_schema")
+    if author.get("has_org_schema"):
+        score += 1
+        signals.append("organization_schema")
+    if schema.get("has_article"):
+        score += 1
+        signals.append("article_schema")
+
+    return {
+        "author_name": author.get("name", ""),
+        "score": score,
+        "max_score": 6,
+        "signals": signals,
+    }
+
+
+def _assess_image_quality(parsed: dict) -> dict:
+    """Assess image alt text quality for AI multimodal readability."""
+    images = parsed.get("images", {})
+    total = images.get("total", 0)
+
+    if total == 0:
+        return {
+            "total_images": 0,
+            "score": 2,  # No images = neutral (not penalized)
+            "max_score": 3,
+        }
+
+    alt_coverage = images.get("alt_coverage", 0)
+    descriptive = images.get("descriptive_ratio", 0)
+
+    score = 0
+    if alt_coverage >= 0.9:
+        score += 2
+    elif alt_coverage >= 0.5:
+        score += 1
+
+    if descriptive >= 0.5:
+        score += 1
+
+    return {
+        "total_images": total,
+        "alt_coverage": alt_coverage,
+        "descriptive_ratio": descriptive,
+        "score": score,
+        "max_score": 3,
+    }
+
+
+def _assess_llms_txt(
+    fetch_result: FetchResult | None = None,
+) -> dict:
+    """Assess llms.txt presence (experimental signal)."""
+    if fetch_result is None:
+        return {
+            "found": False,
+            "path": "",
+            "score": 0,
+            "max_score": 2,
+        }
+    return {
+        "found": fetch_result.llms_txt_found,
+        "path": fetch_result.llms_txt_path,
+        "score": 2 if fetch_result.llms_txt_found else 0,
+        "max_score": 2,
+    }
+
+
+def check_geo(
+    parsed: dict,
+    html: str,
+    url: str,
+    *,
+    draft_mode: bool = False,
+    fetch_result: FetchResult | None = None,
+) -> dict:
     """Run v2.1.0 GEO checks with weighted scoring and extended metrics.
 
     Args:
         draft_mode: When True, skip accessibility checks (robots.txt, noindex).
                     Used for Ghost draft analysis where these metrics are irrelevant.
+        fetch_result: Pre-fetched result containing headers and robots.txt.
+                      When provided, avoids redundant HTTP requests.
     """
     components = parsed.get("content_surface_size", {}).get("components", {})
     stats = parsed.get("stats", {}).copy()
@@ -1023,7 +1399,10 @@ def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) ->
     stats["numeric_statements"] = _count_numeric_statements(paragraphs)
 
     interpretation = _interpretation_type(components, stats, len(entities))
-    mapping = _blocker_signal_mapping(components, stats, len(entities), parsed.get("meta", {}), headings)
+    mapping = _blocker_signal_mapping(
+        components, stats, len(entities),
+        parsed.get("meta", {}), headings,
+    )
     blockers = [name for name, data in mapping.items() if data.get("triggered")]
 
     # Phase 2: Compute extended metrics
@@ -1037,14 +1416,26 @@ def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) ->
         geo_score = _calculate_geo_score(parsed, ai_access, blockers=[])
         summary = _generate_summary(geo_score, blockers, ai_access, parsed, draft_mode=True)
     else:
-        ai_access = _ai_crawler_access(url, html)
+        ai_access = _ai_crawler_access(url, html, fetch_result=fetch_result)
         geo_score = _calculate_geo_score(parsed, ai_access, blockers)
         summary = _generate_summary(geo_score, blockers, ai_access, parsed)
 
     # Phase 3: Compute advanced metrics
     first_paragraph = _assess_first_paragraph(paragraphs)
     pronoun_issues = _detect_pronoun_issues(paragraphs)
-    citation_potential = _calculate_citation_potential(parsed, qa_structure, link_quality)
+    citation_potential = _calculate_citation_potential(
+        parsed, qa_structure, link_quality,
+    )
+
+    # Phase 3 v2: New GEO signals
+    freshness = _assess_freshness(parsed)
+    eeat = _assess_eeat(parsed)
+    image_quality = _assess_image_quality(parsed)
+    llms_txt = _assess_llms_txt(fetch_result)
+
+    # Phase 4: AI Citation Simulation
+    from src.ai.ai_simulator import simulate_citation
+    citation_simulation = simulate_citation(parsed)
 
     result = {
         "geo_score": geo_score,
@@ -1055,16 +1446,20 @@ def check_geo(parsed: dict, html: str, url: str, *, draft_mode: bool = False) ->
         "last_mile_blockers": blockers,
         "blocker_signal_mapping": mapping,
         "structural_fixes": _structural_fixes(blockers),
-        # Phase 2 & 3: Extended metrics
         "extended_metrics": {
             "qa_structure": qa_structure,
             "link_quality": link_quality,
             "content_depth": content_depth,
             "entity_count": len(entities),
-            # Phase 3
             "first_paragraph": first_paragraph,
             "pronoun_clarity": pronoun_issues,
             "citation_potential": citation_potential,
+            # Phase 3 v2: New signals
+            "freshness": freshness,
+            "eeat": eeat,
+            "image_quality": image_quality,
+            "llms_txt": llms_txt,
+            "citation_simulation": citation_simulation,
         },
     }
 

@@ -51,7 +51,10 @@ def run(
     """
     # Validate output format
     if output not in ("cli", "json", "markdown"):
-        console.print(f"[red]Error:[/red] Invalid output format '{output}'. Use cli, json, or markdown.")
+        console.print(
+            f"[red]Error:[/red] Invalid output format "
+            f"'{output}'. Use cli, json, or markdown."
+        )
         raise typer.Exit(1)
 
     output_format: OutputFormat = output  # type: ignore
@@ -64,31 +67,37 @@ def run(
     try:
         # Step 1: Fetch HTML
         with console.status("[bold blue]Fetching page...", spinner="dots"):
-            html = fetch_html(target)
+            fetch_result = fetch_html(target)
+            analysis_url = fetch_result.final_url or target
 
         if verbose:
-            console.print(f"[dim]Fetched {len(html):,} bytes[/dim]")
+            console.print(f"[dim]Fetched {len(fetch_result.html):,} bytes[/dim]")
 
         # Step 2: Parse content
         with console.status("[bold blue]Parsing content...", spinner="dots"):
-            parsed = parse_content(html, target)
+            parsed = parse_content(fetch_result.html, analysis_url)
 
         if verbose:
             stats = parsed.get("stats", {})
-            console.print(f"[dim]Parsed: {stats.get('word_count', 0)} words, {stats.get('heading_count', 0)} headings[/dim]")
+            wc = stats.get('word_count', 0)
+            hc = stats.get('heading_count', 0)
+            console.print(f"[dim]Parsed: {wc} words, {hc} headings[/dim]")
 
         # Step 3: Run GEO checks
         with console.status("[bold blue]Running GEO analysis...", spinner="dots"):
-            geo_results = check_geo(parsed, html, target)
+            geo_results = check_geo(
+                parsed, fetch_result.html, analysis_url,
+                fetch_result=fetch_result,
+            )
 
         # Step 4: Run SEO checks (supplementary)
         with console.status("[bold blue]Running SEO checks...", spinner="dots"):
-            seo_results = check_seo(parsed, html)
+            seo_results = check_seo(parsed, fetch_result.html)
 
         # Combine results
         results = {
             **parsed,
-            "url": target,
+            "url": analysis_url,
             "geo": geo_results,
             "seo": seo_results,
         }
@@ -147,9 +156,13 @@ def check(
     """
     try:
         with console.status("[bold blue]Analyzing...", spinner="dots"):
-            html = fetch_html(target)
-            parsed = parse_content(html, target)
-            geo_results = check_geo(parsed, html, target)
+            fetch_result = fetch_html(target)
+            analysis_url = fetch_result.final_url or target
+            parsed = parse_content(fetch_result.html, analysis_url)
+            geo_results = check_geo(
+                parsed, fetch_result.html, analysis_url,
+                fetch_result=fetch_result,
+            )
 
         score = geo_results.get("geo_score", {})
         total = score.get("total", 0)

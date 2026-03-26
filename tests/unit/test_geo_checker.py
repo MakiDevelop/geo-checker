@@ -245,18 +245,56 @@ class TestGeoScoreCalculation:
             "quotable_sentences": [],
         }
         ai_access_allowed = {
-            "gptbot": "allow",
-            "claudebot": "allow",
-            "perplexitybot": "allow",
-            "google_extended": "allow",
+            "crawlers": {
+                "gptbot": {
+                    "status": "allow", "display": "GPTBot",
+                    "vendor": "OpenAI", "purpose": "both",
+                },
+                "claudebot": {
+                    "status": "allow", "display": "ClaudeBot",
+                    "vendor": "Anthropic", "purpose": "both",
+                },
+                "perplexitybot": {
+                    "status": "allow",
+                    "display": "PerplexityBot",
+                    "vendor": "Perplexity",
+                    "purpose": "search",
+                },
+                "google_extended": {
+                    "status": "allow",
+                    "display": "Google-Extended",
+                    "vendor": "Google",
+                    "purpose": "training",
+                },
+            },
             "meta_robots": {"noindex": False, "nofollow": False},
             "x_robots_tag": {"noindex": False, "nofollow": False},
         }
         ai_access_blocked = {
-            "gptbot": "disallow",
-            "claudebot": "disallow",
-            "perplexitybot": "allow",
-            "google_extended": "allow",
+            "crawlers": {
+                "gptbot": {
+                    "status": "disallow", "display": "GPTBot",
+                    "vendor": "OpenAI", "purpose": "both",
+                },
+                "claudebot": {
+                    "status": "disallow",
+                    "display": "ClaudeBot",
+                    "vendor": "Anthropic",
+                    "purpose": "both",
+                },
+                "perplexitybot": {
+                    "status": "allow",
+                    "display": "PerplexityBot",
+                    "vendor": "Perplexity",
+                    "purpose": "search",
+                },
+                "google_extended": {
+                    "status": "allow",
+                    "display": "Google-Extended",
+                    "vendor": "Google",
+                    "purpose": "training",
+                },
+            },
             "meta_robots": {"noindex": False, "nofollow": False},
             "x_robots_tag": {"noindex": False, "nofollow": False},
         }
@@ -270,7 +308,9 @@ class TestGeoScoreCalculation:
 class TestFullGeoCheck:
     """Integration tests for full GEO check."""
 
-    def test_check_geo_returns_expected_keys(self, parsed_content: dict, valid_html: str, mock_url: str):
+    def test_check_geo_returns_expected_keys(
+        self, parsed_content: dict, valid_html: str, mock_url: str,
+    ):
         """check_geo should return expected keys."""
         # Skip if network not available (mocked in real tests)
         result = check_geo(parsed_content, valid_html, mock_url)
@@ -322,7 +362,7 @@ class TestAccessibilityScoring:
         assert score == 40
 
     def test_one_crawler_blocked(self):
-        """One blocked crawler = -10 points."""
+        """One blocked core crawler = -5 points."""
         ai_access = {
             "gptbot": "disallow",
             "claudebot": "allow",
@@ -332,10 +372,10 @@ class TestAccessibilityScoring:
             "x_robots_tag": {"noindex": False, "nofollow": False},
         }
         score = _score_accessibility(ai_access, [])
-        assert score == 30
+        assert score == 35
 
     def test_all_crawlers_blocked(self):
-        """All 4 crawlers blocked = -40 points = 0."""
+        """All 4 legacy crawlers blocked = -20 points."""
         ai_access = {
             "gptbot": "disallow",
             "claudebot": "disallow",
@@ -345,7 +385,7 @@ class TestAccessibilityScoring:
             "x_robots_tag": {"noindex": False, "nofollow": False},
         }
         score = _score_accessibility(ai_access, [])
-        assert score == 0
+        assert score == 20
 
     def test_noindex_penalty(self):
         """noindex = -15 points."""
@@ -497,7 +537,10 @@ class TestStructureScoring:
 
     def test_breadcrumb_bonus(self):
         """Breadcrumb adds 2 points."""
-        parsed = self._make_parsed(schema_available=True, schema_contribution=5, has_breadcrumb=True)
+        parsed = self._make_parsed(
+            schema_available=True, schema_contribution=5,
+            has_breadcrumb=True,
+        )
         score = _score_structure(parsed, {})
         assert score == 5 + 2
 

@@ -1,6 +1,7 @@
 """Unit tests for HTML fetcher module with security focus."""
 from __future__ import annotations
 
+import socket
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -163,56 +164,86 @@ class TestURLResolution:
 
     def test_resolve_missing_hostname(self):
         """Missing hostname should return error."""
-        ip, hostname, error = _resolve_and_validate_url("http://")
+        ips, hostname, error = _resolve_and_validate_url("http://")
         assert error != ""
-        assert ip == ""
+        assert ips == []
 
     def test_resolve_file_scheme_rejected(self):
         """File scheme should be rejected."""
-        ip, hostname, error = _resolve_and_validate_url("file:///etc/passwd")
+        ips, hostname, error = _resolve_and_validate_url("file:///etc/passwd")
         assert error != ""
         assert "scheme" in error.lower()
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_resolve_public_ip_allowed(self, mock_dns):
         """Public IP resolution should be allowed."""
-        mock_dns.return_value = "93.184.216.34"  # example.com
-        ip, hostname, error = _resolve_and_validate_url("https://example.com")
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0)),
+        ]
+        ips, hostname, error = _resolve_and_validate_url("https://example.com")
         assert error == ""
-        assert ip == "93.184.216.34"
+        assert "93.184.216.34" in ips
         assert hostname == "example.com"
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_resolve_private_ip_blocked(self, mock_dns):
         """DNS resolving to private IP should be blocked."""
-        mock_dns.return_value = "192.168.1.1"
-        ip, hostname, error = _resolve_and_validate_url("https://evil.com")
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
+        ]
+        ips, hostname, error = _resolve_and_validate_url("https://evil.com")
         assert error != ""
         assert "private" in error.lower()
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_resolve_localhost_blocked(self, mock_dns):
         """DNS resolving to localhost should be blocked."""
-        mock_dns.return_value = "127.0.0.1"
-        ip, hostname, error = _resolve_and_validate_url("https://localhost.evil.com")
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("127.0.0.1", 0)),
+        ]
+        ips, hostname, error = _resolve_and_validate_url("https://localhost.evil.com")
         assert error != ""
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_resolve_aws_metadata_blocked(self, mock_dns):
         """DNS resolving to AWS metadata IP should be blocked."""
-        mock_dns.return_value = "169.254.169.254"
-        ip, hostname, error = _resolve_and_validate_url("https://metadata.evil.com")
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("169.254.169.254", 0)),
+        ]
+        ips, hostname, error = _resolve_and_validate_url("https://metadata.evil.com")
         assert error != ""
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_resolve_dns_failure(self, mock_dns):
         """DNS resolution failure should return error."""
-        import socket
+        import socket as _socket
 
-        mock_dns.side_effect = socket.gaierror("DNS lookup failed")
-        ip, hostname, error = _resolve_and_validate_url("https://nonexistent.invalid")
+        mock_dns.side_effect = _socket.gaierror("DNS lookup failed")
+        ips, hostname, error = _resolve_and_validate_url("https://nonexistent.invalid")
         assert error != ""
         assert "resolve" in error.lower()
+
+    @patch("socket.getaddrinfo")
+    def test_resolve_mixed_ipv4_ipv6_all_validated(self, mock_dns):
+        """Both IPv4 and IPv6 addresses should be validated."""
+        ipv6 = "2606:2800:220:1:248:1893:25c8:1946"
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", (ipv6, 0, 0, 0)),
+        ]
+        ips, hostname, error = _resolve_and_validate_url("https://example.com")
+        assert error == ""
+        assert len(ips) == 2
+
+    @patch("socket.getaddrinfo")
+    def test_resolve_mixed_with_private_ipv6_blocked(self, mock_dns):
+        """If any resolved IP is private, it should be blocked."""
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("::1", 0, 0, 0)),
+        ]
+        ips, hostname, error = _resolve_and_validate_url("https://tricky.evil.com")
+        assert error != ""
 
 
 class TestSSRFProtection:
@@ -233,45 +264,51 @@ class TestSSRFProtection:
         with pytest.raises(ValueError, match="Only http"):
             fetch_html("javascript:alert(1)")
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_localhost_url_rejected(self, mock_dns):
         """Localhost URLs should be rejected."""
-        mock_dns.return_value = "127.0.0.1"
+        mock_dns.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("127.0.0.1", 0))]
         with pytest.raises(ValueError, match="SSRF protection"):
             fetch_html("http://localhost/admin")
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_internal_ip_url_rejected(self, mock_dns):
         """Direct internal IP URLs should be rejected."""
-        mock_dns.return_value = "10.0.0.5"
+        mock_dns.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("10.0.0.5", 0))]
         with pytest.raises(ValueError, match="SSRF protection"):
             fetch_html("http://10.0.0.5/secret")
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     def test_aws_metadata_rejected(self, mock_dns):
         """AWS metadata endpoint should be rejected."""
-        mock_dns.return_value = "169.254.169.254"
+        mock_dns.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "",
+             ("169.254.169.254", 0)),
+        ]
         with pytest.raises(ValueError, match="SSRF protection"):
-            fetch_html("http://169.254.169.254/latest/meta-data/")
+            fetch_html(
+                "http://169.254.169.254/latest/meta-data/"
+            )
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     @patch("requests.get")
     def test_redirect_to_internal_ip_blocked(self, mock_get, mock_dns):
         """Redirect to internal IP should be blocked."""
-        # First request succeeds, returns redirect
         mock_response = MagicMock()
         mock_response.is_redirect = True
         mock_response.headers = {"Location": "http://192.168.1.1/admin"}
         mock_get.return_value = mock_response
 
-        # DNS for original URL resolves to public IP
-        # DNS for redirect target resolves to private IP
-        mock_dns.side_effect = ["93.184.216.34", "192.168.1.1"]
+        # DNS for original URL resolves to public IP, redirect to private
+        mock_dns.side_effect = [
+            [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))],
+            [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0))],
+        ]
 
         with pytest.raises(ValueError, match="SSRF protection"):
             fetch_html("https://example.com/redirect")
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     @patch("requests.get")
     def test_redirect_to_localhost_blocked(self, mock_get, mock_dns):
         """Redirect to localhost should be blocked."""
@@ -280,7 +317,10 @@ class TestSSRFProtection:
         mock_response.headers = {"Location": "http://127.0.0.1:8080/internal"}
         mock_get.return_value = mock_response
 
-        mock_dns.side_effect = ["93.184.216.34", "127.0.0.1"]
+        mock_dns.side_effect = [
+            [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))],
+            [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("127.0.0.1", 0))],
+        ]
 
         with pytest.raises(ValueError, match="SSRF protection"):
             fetch_html("https://example.com/evil-redirect")
@@ -289,11 +329,11 @@ class TestSSRFProtection:
 class TestResponseSizeLimits:
     """Tests for response size limiting."""
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     @patch("requests.get")
     def test_large_content_length_rejected(self, mock_get, mock_dns):
         """Response with Content-Length exceeding limit should be rejected."""
-        mock_dns.return_value = "93.184.216.34"
+        mock_dns.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
 
         mock_response = MagicMock()
         mock_response.is_redirect = False
@@ -304,11 +344,11 @@ class TestResponseSizeLimits:
         with pytest.raises(ValueError, match="too large"):
             fetch_html("https://example.com/huge-file")
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     @patch("requests.get")
     def test_chunked_response_too_large_rejected(self, mock_get, mock_dns):
         """Chunked response exceeding limit should be rejected."""
-        mock_dns.return_value = "93.184.216.34"
+        mock_dns.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
 
         mock_response = MagicMock()
         mock_response.is_redirect = False
@@ -365,11 +405,11 @@ class TestJSRenderDetection:
 class TestHTTPErrors:
     """Tests for HTTP error handling."""
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     @patch("requests.get")
     def test_http_404_raises_error(self, mock_get, mock_dns):
         """HTTP 404 should raise an error."""
-        mock_dns.return_value = "93.184.216.34"
+        mock_dns.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
 
         mock_response = MagicMock()
         mock_response.is_redirect = False
@@ -380,11 +420,11 @@ class TestHTTPErrors:
         with pytest.raises(requests.HTTPError):
             fetch_html("https://example.com/not-found")
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     @patch("requests.get")
     def test_http_500_raises_error(self, mock_get, mock_dns):
         """HTTP 500 should raise an error."""
-        mock_dns.return_value = "93.184.216.34"
+        mock_dns.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
 
         mock_response = MagicMock()
         mock_response.is_redirect = False
@@ -397,11 +437,11 @@ class TestHTTPErrors:
         with pytest.raises(requests.HTTPError):
             fetch_html("https://example.com/error")
 
-    @patch("socket.gethostbyname")
+    @patch("socket.getaddrinfo")
     @patch("requests.get")
     def test_connection_timeout(self, mock_get, mock_dns):
         """Connection timeout should raise an error."""
-        mock_dns.return_value = "93.184.216.34"
+        mock_dns.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
         mock_get.side_effect = requests.Timeout("Connection timed out")
 
         with pytest.raises(requests.Timeout):

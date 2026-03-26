@@ -29,9 +29,10 @@ RESULTS_DIR = Path("data/results")
 
 def _run_analysis(url: str) -> dict:
     """Run GEO analysis on a single URL."""
-    html = fetch_html(url)
-    parsed = parse_content(html, url)
-    geo = check_geo(parsed, html, url)
+    fetch_result = fetch_html(url)
+    analysis_url = fetch_result.final_url or url
+    parsed = parse_content(fetch_result.html, analysis_url)
+    geo = check_geo(parsed, fetch_result.html, analysis_url, fetch_result=fetch_result)
 
     return {
         "url": url,
