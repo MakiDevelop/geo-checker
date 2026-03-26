@@ -77,11 +77,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     # CSP for main web UI
     DEFAULT_CSP = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data:; "
-        "font-src 'self'; "
-        "connect-src 'self'; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "connect-src 'self' https://www.google-analytics.com; "
         "frame-ancestors 'none'"
     )
 
