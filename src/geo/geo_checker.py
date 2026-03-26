@@ -1429,6 +1429,10 @@ def check_geo(
     image_quality = _assess_image_quality(parsed)
     llms_txt = _assess_llms_txt(fetch_result)
 
+    # Phase 4: AI Citation Simulation
+    from src.ai.ai_simulator import simulate_citation
+    citation_simulation = simulate_citation(parsed)
+
     result = {
         "geo_score": geo_score,
         "summary": summary,
@@ -1451,6 +1455,7 @@ def check_geo(
             "eeat": eeat,
             "image_quality": image_quality,
             "llms_txt": llms_txt,
+            "citation_simulation": citation_simulation,
         },
     }
 
