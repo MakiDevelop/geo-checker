@@ -245,7 +245,8 @@ def _detect_quotable_sentences(text: str) -> list[dict]:
         quote_type = None
 
         # Check for statistics/numbers
-        if re.search(r'\d+%|\d+\s*percent|統計|調查|研究顯示|according to', sentence, re.IGNORECASE):
+        stat_pat = r'\d+%|\d+\s*percent|統計|調查|研究顯示|according to'
+        if re.search(stat_pat, sentence, re.IGNORECASE):
             quote_type = "statistic"
 
         # Check for definitions
@@ -426,7 +427,10 @@ def _extract_schema_org(html: str, url: str = "") -> dict:
         types_list = list(types_found)
 
         # Check for specific important schema types
-        has_article = any(t in types_found for t in ['Article', 'NewsArticle', 'BlogPosting', 'TechArticle'])
+        article_types = {
+            'Article', 'NewsArticle', 'BlogPosting', 'TechArticle',
+        }
+        has_article = bool(types_found & article_types)
         has_faq = 'FAQPage' in types_found
         has_howto = 'HowTo' in types_found
         has_qa = any(t in types_found for t in ['QAPage', 'Question', 'Answer'])
@@ -483,7 +487,10 @@ def _extract_schema_org(html: str, url: str = "") -> dict:
         }
 
 
-def _content_surface_components(headings_count: int, paragraphs: list[str], lists: list[list[str]], tables: list[list[str]]) -> dict:
+def _content_surface_components(
+    headings_count: int, paragraphs: list[str],
+    lists: list[list[str]], tables: list[list[str]],
+) -> dict:
     paragraph_blocks = sum(1 for text in paragraphs if len(text) >= 10)
     definition_blocks = sum(1 for text in paragraphs if _is_definition_paragraph(text))
     components = {
@@ -532,12 +539,164 @@ def _calculate_content_ratio(html: str, main_content: str) -> float:
         return 0.0
 
 
+def _extract_freshness(
+    soup: BeautifulSoup, schema_org: dict,
+) -> dict:
+    """Extract publication/modification dates from HTML and schema.
+
+    Checks: <time datetime>, <meta> tags, JSON-LD datePublished/Modified.
+    """
+    dates: dict[str, str] = {}
+
+    # 1. Schema.org JSON-LD (most reliable)
+    for schema in schema_org.get("schemas", []):
+        data = schema.get("data", {})
+        if "datePublished" in data and "published" not in dates:
+            dates["published"] = str(data["datePublished"])
+        if "dateModified" in data and "modified" not in dates:
+            dates["modified"] = str(data["dateModified"])
+
+    # 2. <meta> tags
+    for name in ("article:published_time", "datePublished"):
+        tag = soup.find("meta", attrs={"property": name}) or \
+              soup.find("meta", attrs={"name": name})
+        if tag and tag.get("content") and "published" not in dates:
+            dates["published"] = tag["content"]
+    for name in ("article:modified_time", "dateModified"):
+        tag = soup.find("meta", attrs={"property": name}) or \
+              soup.find("meta", attrs={"name": name})
+        if tag and tag.get("content") and "modified" not in dates:
+            dates["modified"] = tag["content"]
+
+    # 3. <time datetime> elements
+    time_tags = soup.find_all("time", attrs={"datetime": True})
+    for t in time_tags[:5]:
+        dt = t.get("datetime", "")
+        if dt and "published" not in dates:
+            dates["published"] = dt
+            break
+
+    return {
+        "date_published": dates.get("published", ""),
+        "date_modified": dates.get("modified", ""),
+        "has_dates": bool(dates),
+    }
+
+
+def _extract_author_info(
+    soup: BeautifulSoup, schema_org: dict,
+) -> dict:
+    """Extract author/E-E-A-T signals from HTML and schema.
+
+    Checks: JSON-LD author field, <meta author>, rel=author links,
+    author bio sections.
+    """
+    author_name = ""
+    author_url = ""
+    has_author_bio = False
+
+    # 1. Schema.org JSON-LD author
+    for schema in schema_org.get("schemas", []):
+        data = schema.get("data", {})
+        author = data.get("author", {})
+        if isinstance(author, dict):
+            if not author_name and author.get("name"):
+                author_name = str(author["name"])
+            if not author_url and author.get("url"):
+                author_url = str(author["url"])
+        elif isinstance(author, list) and author:
+            first = author[0]
+            if isinstance(first, dict) and not author_name and first.get("name"):
+                author_name = str(first["name"])
+
+    # 2. <meta name="author">
+    if not author_name:
+        meta_author = soup.find(
+            "meta", attrs={"name": "author"},
+        )
+        if meta_author and meta_author.get("content"):
+            author_name = meta_author["content"]
+
+    # 3. rel="author" links
+    if not author_url:
+        author_link = soup.find("a", attrs={"rel": "author"})
+        if author_link:
+            author_url = author_link.get("href", "")
+            if not author_name:
+                author_name = author_link.get_text(strip=True)
+
+    # 4. Author bio section detection
+    bio_patterns = [
+        "author-bio", "author-info", "about-author",
+        "post-author", "entry-author", "byline",
+    ]
+    for pattern in bio_patterns:
+        if soup.find(class_=re.compile(pattern, re.I)):
+            has_author_bio = True
+            break
+        if soup.find(id=re.compile(pattern, re.I)):
+            has_author_bio = True
+            break
+
+    return {
+        "name": author_name,
+        "url": author_url,
+        "has_author_bio": has_author_bio,
+        "has_author": bool(author_name),
+        "has_person_schema": schema_org.get("has_person", False),
+        "has_org_schema": schema_org.get(
+            "has_organization", False,
+        ),
+    }
+
+
+def _extract_images(soup: BeautifulSoup) -> dict:
+    """Extract image data and alt text quality metrics."""
+    images = []
+    for img in soup.find_all("img", src=True)[:50]:
+        src = img.get("src", "")
+        alt = img.get("alt", "")
+        # Skip tiny tracking pixels and icons
+        width = img.get("width", "")
+        height = img.get("height", "")
+        if width and height:
+            try:
+                if int(width) <= 2 or int(height) <= 2:
+                    continue
+            except (ValueError, TypeError):
+                pass
+        images.append({"src": src, "alt": alt})
+
+    total = len(images)
+    with_alt = sum(1 for img in images if img["alt"].strip())
+    descriptive = sum(
+        1 for img in images
+        if img["alt"].strip() and len(img["alt"].split()) >= 3
+    )
+
+    return {
+        "total": total,
+        "with_alt": with_alt,
+        "with_descriptive_alt": descriptive,
+        "alt_coverage": (
+            round(with_alt / total, 2) if total > 0 else 1.0
+        ),
+        "descriptive_ratio": (
+            round(descriptive / total, 2) if total > 0 else 1.0
+        ),
+    }
+
+
 def parse_content(html: str, url: str = "") -> dict:
     """Parse main content from HTML into a structured JSON-like dict."""
     soup = BeautifulSoup(html, "lxml")
     title = _clean_text(soup.title.text) if soup.title and soup.title.text else ""
     description_tag = soup.find("meta", attrs={"name": "description"})
-    description = _clean_text(description_tag["content"]) if description_tag and description_tag.get("content") else ""
+    description = (
+        _clean_text(description_tag["content"])
+        if description_tag and description_tag.get("content")
+        else ""
+    )
     canonical_tag = soup.find("link", attrs={"rel": lambda val: val and "canonical" in val})
     canonical = canonical_tag.get("href", "") if canonical_tag else ""
 
@@ -552,7 +711,11 @@ def parse_content(html: str, url: str = "") -> dict:
     blocks = []
     current_heading = None
 
-    for element in content_root.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "ul", "ol", "table"]):
+    tag_types = [
+        "h1", "h2", "h3", "h4", "h5", "h6",
+        "p", "ul", "ol", "table",
+    ]
+    for element in content_root.find_all(tag_types):
         if element.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
             if _in_ancestor(element, ["ul", "ol", "table"]):
                 continue
@@ -686,6 +849,11 @@ def parse_content(html: str, url: str = "") -> dict:
     quotable_sentences = _detect_quotable_sentences(all_text)
     content_ratio = _calculate_content_ratio(html, all_text)
 
+    # Phase 3: New GEO signals
+    freshness = _extract_freshness(soup, schema_org)
+    author_info = _extract_author_info(soup, schema_org)
+    images = _extract_images(soup)
+
     return {
         "url": url,
         "meta": {
@@ -727,4 +895,7 @@ def parse_content(html: str, url: str = "") -> dict:
         "readability": readability,
         "schema_org": schema_org,
         "quotable_sentences": quotable_sentences,
+        "freshness": freshness,
+        "author_info": author_info,
+        "images": images,
     }

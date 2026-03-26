@@ -24,6 +24,9 @@ class FetchResult:
     robots_txt: str = ""
     robots_txt_found: bool = False
     is_ghost: bool = False
+    llms_txt: str = ""
+    llms_txt_found: bool = False
+    llms_txt_path: str = ""  # which variant was found
 
 
 def _is_url(source: str) -> bool:
@@ -108,6 +111,59 @@ def _fetch_robots_txt(url: str) -> tuple[bool, str]:
         return True, response.text
     except requests.RequestException:
         return False, ""
+
+
+_LLMS_TXT_MAX_SIZE = 100_000  # 100KB limit for llms.txt
+
+
+def _fetch_llms_txt(url: str) -> tuple[bool, str, str]:
+    """Probe for llms.txt variants at the root of the domain.
+
+    Checks /llms.txt, /llm.txt, /llms-full.txt in order.
+    Short timeout (3s each) and size-limited to avoid latency DoS.
+    Returns (found, content, path_found).
+    """
+    parsed = urlparse(url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    variants = ["/llms.txt", "/llm.txt", "/llms-full.txt"]
+    for path in variants:
+        probe_url = f"{base}{path}"
+        try:
+            _, _, error = _resolve_and_validate_url(probe_url)
+            if error:
+                continue
+            resp = requests.get(
+                probe_url, timeout=3,
+                allow_redirects=False, stream=True,
+            )
+            if resp.status_code != 200:
+                resp.close()
+                continue
+            ct = resp.headers.get("Content-Type", "")
+            if not ("text/" in ct or "markdown" in ct or not ct):
+                resp.close()
+                continue
+            # Size-limited read
+            cl = resp.headers.get("Content-Length", "")
+            if cl and int(cl) > _LLMS_TXT_MAX_SIZE:
+                resp.close()
+                continue
+            chunks = []
+            total = 0
+            for chunk in resp.iter_content(4096):
+                total += len(chunk)
+                if total > _LLMS_TXT_MAX_SIZE:
+                    resp.close()
+                    break
+                chunks.append(chunk)
+            else:
+                content = b"".join(chunks).decode(
+                    "utf-8", errors="replace",
+                )
+                return True, content[:10000], path
+        except (requests.RequestException, ValueError):
+            continue
+    return False, "", ""
 
 
 def _needs_js_render(html: str, content_type: str) -> bool:
@@ -232,8 +288,9 @@ def fetch_html(source: str) -> FetchResult:
         except RuntimeError as exc:
             raise RuntimeError("Unable to render JS page within timeout") from exc
 
-    # Fetch robots.txt in the same pipeline (avoids separate unprotected request later)
+    # Fetch robots.txt and llms.txt in the same pipeline
     robots_found, robots_text = _fetch_robots_txt(current_url)
+    llms_found, llms_text, llms_path = _fetch_llms_txt(current_url)
 
     return FetchResult(
         html=html,
@@ -241,4 +298,7 @@ def fetch_html(source: str) -> FetchResult:
         final_url=current_url,
         robots_txt=robots_text,
         robots_txt_found=robots_found,
+        llms_txt=llms_text,
+        llms_txt_found=llms_found,
+        llms_txt_path=llms_path,
     )

@@ -1108,9 +1108,32 @@ def _generate_summary(
 
     # Phase 3: Citation potential
     link_quality = _assess_link_quality(parsed)
-    citation_potential = _calculate_citation_potential(parsed, qa_structure, link_quality)
+    citation_potential = _calculate_citation_potential(
+        parsed, qa_structure, link_quality,
+    )
     if citation_potential.get("level") == "high":
         issues["good"].append({"key": "high_citation_potential"})
+
+    # Phase 3 v2: New signal assessments
+    freshness_info = parsed.get("freshness", {})
+    if freshness_info.get("has_dates"):
+        issues["good"].append({"key": "has_date_signals"})
+    else:
+        issues["warning"].append({"key": "no_date_signals"})
+
+    author_info = parsed.get("author_info", {})
+    if author_info.get("has_author"):
+        issues["good"].append({"key": "author_identified"})
+    else:
+        issues["warning"].append({"key": "no_author"})
+
+    images_info = parsed.get("images", {})
+    if images_info.get("total", 0) > 0:
+        alt_cov = images_info.get("alt_coverage", 0)
+        if alt_cov < 0.5:
+            issues["warning"].append({"key": "poor_alt_text"})
+        elif alt_cov >= 0.9:
+            issues["good"].append({"key": "good_alt_text"})
 
     # Generate one-line summary
     grade = geo_score.get("grade", "C")
@@ -1193,8 +1216,157 @@ def _get_priority_fixes(issues: dict, blockers: list[str], parsed: dict) -> list
                 "action": "reduce_pronouns",
                 "impact": "low",
             })
+        elif issue.get("key") == "no_date_signals":
+            fixes.append({
+                "priority": "suggested",
+                "action": "add_date_metadata",
+                "impact": "medium",
+            })
+        elif issue.get("key") == "no_author":
+            fixes.append({
+                "priority": "recommended",
+                "action": "add_author_info",
+                "impact": "medium",
+            })
+        elif issue.get("key") == "poor_alt_text":
+            fixes.append({
+                "priority": "suggested",
+                "action": "improve_alt_text",
+                "impact": "low",
+            })
 
     return fixes[:5]  # Return top 5 fixes
+
+
+def _assess_freshness(parsed: dict) -> dict:
+    """Assess content freshness signals."""
+    freshness = parsed.get("freshness", {})
+    pub = freshness.get("date_published", "")
+    mod = freshness.get("date_modified", "")
+
+    score = 0
+    if pub or mod:
+        score += 1  # Has any date signal
+        # Try to parse and check recency
+        from datetime import UTC, datetime
+        latest = mod or pub
+        try:
+            # Handle ISO format with various suffixes
+            clean = latest.replace("Z", "+00:00")
+            if "T" in clean:
+                dt = datetime.fromisoformat(clean)
+            else:
+                dt = datetime.fromisoformat(
+                    clean + "T00:00:00+00:00"
+                )
+            # Ensure timezone-aware comparison
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            now = datetime.now(UTC)
+            days_ago = (now - dt).days
+            # Reject future dates (likely bad metadata)
+            if days_ago < 0:
+                pass  # Don't give freshness credit
+            elif days_ago <= 30:
+                score += 3  # Very fresh
+            elif days_ago <= 90:
+                score += 2  # Reasonably fresh
+            elif days_ago <= 365:
+                score += 1  # Within a year
+        except (ValueError, TypeError, OverflowError):
+            pass  # Can't parse date, keep base score
+
+    return {
+        "date_published": pub,
+        "date_modified": mod,
+        "has_dates": freshness.get("has_dates", False),
+        "score": score,
+        "max_score": 4,
+    }
+
+
+def _assess_eeat(parsed: dict) -> dict:
+    """Assess E-E-A-T (Experience, Expertise, Authority, Trust) signals."""
+    author = parsed.get("author_info", {})
+    schema = parsed.get("schema_org", {})
+
+    score = 0
+    signals: list[str] = []
+
+    if author.get("has_author"):
+        score += 2
+        signals.append("author_identified")
+    if author.get("has_author_bio"):
+        score += 1
+        signals.append("author_bio")
+    if author.get("has_person_schema"):
+        score += 1
+        signals.append("person_schema")
+    if author.get("has_org_schema"):
+        score += 1
+        signals.append("organization_schema")
+    if schema.get("has_article"):
+        score += 1
+        signals.append("article_schema")
+
+    return {
+        "author_name": author.get("name", ""),
+        "score": score,
+        "max_score": 6,
+        "signals": signals,
+    }
+
+
+def _assess_image_quality(parsed: dict) -> dict:
+    """Assess image alt text quality for AI multimodal readability."""
+    images = parsed.get("images", {})
+    total = images.get("total", 0)
+
+    if total == 0:
+        return {
+            "total_images": 0,
+            "score": 2,  # No images = neutral (not penalized)
+            "max_score": 3,
+        }
+
+    alt_coverage = images.get("alt_coverage", 0)
+    descriptive = images.get("descriptive_ratio", 0)
+
+    score = 0
+    if alt_coverage >= 0.9:
+        score += 2
+    elif alt_coverage >= 0.5:
+        score += 1
+
+    if descriptive >= 0.5:
+        score += 1
+
+    return {
+        "total_images": total,
+        "alt_coverage": alt_coverage,
+        "descriptive_ratio": descriptive,
+        "score": score,
+        "max_score": 3,
+    }
+
+
+def _assess_llms_txt(
+    fetch_result: FetchResult | None = None,
+) -> dict:
+    """Assess llms.txt presence (experimental signal)."""
+    if fetch_result is None:
+        return {
+            "found": False,
+            "path": "",
+            "score": 0,
+            "max_score": 2,
+        }
+    return {
+        "found": fetch_result.llms_txt_found,
+        "path": fetch_result.llms_txt_path,
+        "score": 2 if fetch_result.llms_txt_found else 0,
+        "max_score": 2,
+    }
 
 
 def check_geo(
@@ -1247,7 +1419,15 @@ def check_geo(
     # Phase 3: Compute advanced metrics
     first_paragraph = _assess_first_paragraph(paragraphs)
     pronoun_issues = _detect_pronoun_issues(paragraphs)
-    citation_potential = _calculate_citation_potential(parsed, qa_structure, link_quality)
+    citation_potential = _calculate_citation_potential(
+        parsed, qa_structure, link_quality,
+    )
+
+    # Phase 3 v2: New GEO signals
+    freshness = _assess_freshness(parsed)
+    eeat = _assess_eeat(parsed)
+    image_quality = _assess_image_quality(parsed)
+    llms_txt = _assess_llms_txt(fetch_result)
 
     result = {
         "geo_score": geo_score,
@@ -1258,16 +1438,19 @@ def check_geo(
         "last_mile_blockers": blockers,
         "blocker_signal_mapping": mapping,
         "structural_fixes": _structural_fixes(blockers),
-        # Phase 2 & 3: Extended metrics
         "extended_metrics": {
             "qa_structure": qa_structure,
             "link_quality": link_quality,
             "content_depth": content_depth,
             "entity_count": len(entities),
-            # Phase 3
             "first_paragraph": first_paragraph,
             "pronoun_clarity": pronoun_issues,
             "citation_potential": citation_potential,
+            # Phase 3 v2: New signals
+            "freshness": freshness,
+            "eeat": eeat,
+            "image_quality": image_quality,
+            "llms_txt": llms_txt,
         },
     }
 
