@@ -81,19 +81,39 @@ def compare_results(results: dict[str, dict]) -> dict:
     metrics_to_compare = [
         ("geo.geo_score.total", "GEO Score", "geo_score"),
         ("geo.geo_score.grade", "Grade", "grade"),
-        ("geo.geo_score.breakdown.accessibility.score", "Accessibility", "accessibility"),
-        ("geo.geo_score.breakdown.structure.score", "Structure", "structure"),
-        ("geo.geo_score.breakdown.quality.score", "Quality", "quality"),
-        ("readability.flesch_reading_ease", "Readability (Flesch)", "readability_flesch"),
-        ("readability.flesch_kincaid_grade", "Reading Grade", "reading_grade"),
+        ("geo.geo_score.breakdown.accessibility.score",
+         "Accessibility", "accessibility"),
+        ("geo.geo_score.breakdown.structure.score",
+         "Structure", "structure"),
+        ("geo.geo_score.breakdown.quality.score",
+         "Quality", "quality"),
+        ("readability.flesch_reading_ease",
+         "Readability (Flesch)", "readability_flesch"),
         ("stats.word_count", "Word Count", "word_count"),
         ("stats.heading_count", "Headings", "headings"),
-        ("stats.paragraph_count", "Paragraphs", "paragraphs"),
-        ("geo.extended_metrics.entity_count", "Entities", "entities"),
-        ("geo.extended_metrics.citation_potential.level", "Citation Potential", "citation_potential"),
-        ("geo.extended_metrics.qa_structure.has_qa_structure", "Has Q&A Structure", "qa_structure"),
-        ("geo.extended_metrics.content_depth.has_deep_hierarchy", "Deep Hierarchy", "deep_hierarchy"),
+        ("geo.extended_metrics.entity_count",
+         "Entities", "entities"),
+        ("geo.extended_metrics.citation_potential.level",
+         "Citation Potential", "citation_potential"),
+        ("geo.extended_metrics.qa_structure.has_qa_structure",
+         "Q&A Structure", "qa_structure"),
+        ("geo.extended_metrics.content_depth.has_deep_hierarchy",
+         "Deep Hierarchy", "deep_hierarchy"),
         ("schema_org.types", "Schema Types", "schema_types"),
+        # Phase 3 signals
+        ("geo.extended_metrics.freshness.score",
+         "Freshness", "freshness"),
+        ("geo.extended_metrics.eeat.score",
+         "E-E-A-T", "eeat"),
+        ("geo.extended_metrics.eeat.author_name",
+         "Author", "author"),
+        ("geo.extended_metrics.image_quality.alt_coverage",
+         "Image Alt Coverage", "image_alt"),
+        ("geo.extended_metrics.llms_txt.found",
+         "llms.txt", "llms_txt"),
+        # Phase 4
+        ("geo.extended_metrics.citation_simulation.coverage.readiness",
+         "Citation Readiness", "citation_readiness"),
     ]
 
     for metric_path, metric_name, metric_key in metrics_to_compare:
@@ -103,16 +123,35 @@ def compare_results(results: dict[str, dict]) -> dict:
             diff["values"][url_id] = _format_value(value)
         diffs.append(diff)
 
-    # Add crawler access comparison
-    crawler_diff = {"metric": "AI Crawlers Allowed", "key": "ai_crawlers", "values": {}}
+    # Add crawler access comparison (dynamic, supports 14+)
+    crawler_diff = {
+        "metric": "AI Crawlers Allowed",
+        "key": "ai_crawlers",
+        "values": {},
+    }
     for url_id, result in results.items():
-        crawler = _get_nested(result, "geo.ai_crawler_access", {})
-        allowed_count = sum(
-            1 for bot in ["gptbot", "claudebot", "perplexitybot", "google_extended"]
-            if crawler.get(bot) == "allow"
+        ai_access = _get_nested(
+            result, "geo.ai_crawler_access", {},
         )
-        crawler_diff["values"][url_id] = f"{allowed_count}/4"
-    diffs.insert(6, crawler_diff)  # Insert after Quality
+        crawlers = ai_access.get("crawlers", {})
+        if crawlers:
+            total = len(crawlers)
+            allowed = sum(
+                1 for c in crawlers.values()
+                if c.get("status") == "allow"
+            )
+        else:
+            # Legacy fallback
+            total = 4
+            allowed = sum(
+                1 for k in (
+                    "gptbot", "claudebot",
+                    "perplexitybot", "google_extended",
+                )
+                if ai_access.get(k) == "allow"
+            )
+        crawler_diff["values"][url_id] = f"{allowed}/{total}"
+    diffs.insert(5, crawler_diff)  # Insert after Quality
 
     return {
         "summary": summary,
