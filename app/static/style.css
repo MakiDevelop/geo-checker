@@ -130,9 +130,13 @@ button:disabled {
 
 .section {
   margin-top: 24px;
+}
+
+/* Sections inside cards use subtle background separation */
+.card .section {
   background: var(--bg-alt);
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 12px;
+  padding: 16px;
 }
 
 .section h2 {

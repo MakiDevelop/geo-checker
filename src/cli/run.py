@@ -141,7 +141,7 @@ def run(
 @app.command()
 def version() -> None:
     """Show version information."""
-    console.print("[bold]GEO Checker[/bold] v2.0.0")
+    console.print("[bold]GEO Checker[/bold] v3.0.0")
     console.print("[dim]Generative Engine Optimization analyzer[/dim]")
 
 

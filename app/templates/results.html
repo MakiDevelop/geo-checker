@@ -204,7 +204,7 @@
             {% if crawler %}
               <p class="section-intro">{{ t["crawler.intro"] }}</p>
               {# Dynamic crawler grid — renders all crawlers from backend #}
-              {% set crawlers_dict = crawler.crawlers if crawler.crawlers is defined else {} %}
+              {% set crawlers_dict = crawler.get("crawlers", {}) if crawler is mapping else {} %}
               {% if crawlers_dict %}
               <div class="crawler-grid">
                 {% for key, info in crawlers_dict.items() %}

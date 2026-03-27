@@ -152,7 +152,7 @@ Analysis runs asynchronously:
 1. `POST /api/v1/analyze` - Submit URL, get `job_id`
 2. `GET /api/v1/jobs/{job_id}` - Poll for results
 """,
-    version="2.1.0",
+    version="3.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",

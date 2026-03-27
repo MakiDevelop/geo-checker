@@ -1381,7 +1381,7 @@ def check_geo(
     draft_mode: bool = False,
     fetch_result: FetchResult | None = None,
 ) -> dict:
-    """Run v2.1.0 GEO checks with weighted scoring and extended metrics.
+    """Run v3.0.0 GEO checks with weighted scoring and extended metrics.
 
     Args:
         draft_mode: When True, skip accessibility checks (robots.txt, noindex).
