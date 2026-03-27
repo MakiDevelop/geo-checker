@@ -166,6 +166,12 @@
   "issues.warning": "警告事項",
   "issues.good": "優良表現",
 
+  "landing.how.title": "運作方式",
+  "landing.how.p1": "GEO Checker 從三個維度分析你的網頁：可存取性檢查 14 個主要 AI 爬蟲——包括 GPTBot（ChatGPT）、ClaudeBot（Anthropic）、PerplexityBot、Google-Extended（Gemini）、Applebot-Extended（Apple Intelligence）——能否透過 robots.txt 和 meta 標籤存取你的內容。",
+  "landing.how.p2": "結構性評估你的內容對 AI 理解的友好程度——標題層級、列表、表格、Schema.org 結構化資料（Article、FAQPage、HowTo）、以及 AI 搜尋引擎在生成回答時偏好的問答模式。",
+  "landing.how.p3": "品質衡量與 AI 引用率相關的信號：E-E-A-T 作者權威、內容新鮮度（30 天內更新的頁面引用率高 3.2 倍）、可讀性、定義密度、以及可引用的事實和統計數據。",
+  "landing.how.p4": "分析完成後，行動工具包提供可直接複製貼上的程式碼：包含 14 個 AI 爬蟲規則的 robots.txt、根據你的內容自動生成的 JSON-LD Schema 標記、互動式修復清單、以及可嵌入網站的 AI-Ready 徽章。",
+
   "landing.faq.title": "常見問題",
   "landing.faq.q1": "什麼是 GEO（Generative Engine Optimization）？",
   "landing.faq.a1": "GEO（生成式引擎優化）是優化網頁內容，讓 AI 搜尋引擎（如 ChatGPT、Perplexity、Gemini、Claude）能正確找到、理解並引用你的內容。SEO 幫助人類在搜尋結果中找到你，GEO 則確保 AI 系統在回答中正確引用你。",
