@@ -51,7 +51,10 @@
     <div class="landing-hero">
       <div class="landing-hero-content">
         <div class="home-hero">
-          <img src="/static/images/hero.png" alt="GEO Checker" class="hero-image" />
+          <picture>
+            <source srcset="/static/images/hero.webp" type="image/webp" />
+            <img src="/static/images/hero.png" alt="GEO Checker" class="hero-image" />
+          </picture>
         </div>
         <h1 class="landing-tagline">{{ t["landing.hero.tagline"] }}</h1>
         <p class="landing-subtitle">{{ t["landing.hero.subtitle"] }}</p>
