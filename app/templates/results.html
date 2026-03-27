@@ -749,6 +749,23 @@
           </div>
           {% endif %}
 
+          {# AI-Ready Badge #}
+          {% if result and result_id %}
+          <div class="section" id="badge-embed">
+            <h2>AI-Ready Badge</h2>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">
+              Embed this badge on your website to show your GEO score.
+            </p>
+            <div style="margin-bottom: 12px;">
+              <img src="/results/{{ result_id }}/badge.svg" alt="GEO Score Badge" height="22" />
+            </div>
+            <pre class="code-block"><code>&lt;a href="https://gc.ranran.tw/results/{{ result_id }}" target="_blank"&gt;
+  &lt;img src="https://gc.ranran.tw/results/{{ result_id }}/badge.svg" alt="GEO Score" height="22" /&gt;
+&lt;/a&gt;</code></pre>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy Badge Code</button>
+          </div>
+          {% endif %}
+
         <!-- Level 3: AI Brand Visibility - Vision Preview -->
           <div class="section level3-section">
             <h2>

@@ -21,6 +21,7 @@ from src.fetcher.ghost_fetcher import is_ghost_url
 from src.fetcher.html_fetcher import fetch_html
 from src.geo.geo_checker import check_geo
 from src.parser.content_parser import parse_content
+from src.toolkit.badge import generate_badge_svg
 from src.toolkit.checklist import generate_checklist
 from src.toolkit.robots_generator import generate_robots_txt
 from src.toolkit.schema_generator import (
@@ -303,6 +304,32 @@ def score_card_image(result_id: str) -> Response:
         headers={
             "Cache-Control": "public, max-age=3600",
         },
+    )
+
+
+@router.get("/results/{result_id}/badge.svg")
+def badge_svg(result_id: str) -> Response:
+    """Serve dynamic SVG badge for a stored result."""
+    path = _get_safe_result_path(result_id)
+    if path is None or not path.exists():
+        # Return a "no data" badge
+        svg = generate_badge_svg(0, "?", label="GEO Score")
+        return Response(
+            content=svg, media_type="image/svg+xml",
+        )
+
+    result = json.loads(path.read_text())
+    geo = result.get("geo", {})
+    score_data = geo.get("geo_score", {})
+
+    svg = generate_badge_svg(
+        score=score_data.get("total", 0),
+        grade=score_data.get("grade", "?"),
+    )
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600"},
     )
 
 
