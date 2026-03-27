@@ -1659,6 +1659,25 @@ details[open] summary {
   color: var(--muted);
 }
 
+/* Share Button */
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.share-btn:hover {
+  box-shadow: 0 4px 16px rgba(81, 31, 231, 0.3);
+  transform: translateY(-1px);
+}
+
 /* Action Toolkit */
 .code-block {
   background: #1e1e2e;

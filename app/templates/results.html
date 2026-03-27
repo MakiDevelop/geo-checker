@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ t["result.title"] }}</title>
+    {% if result and result.geo is defined %}
+    {% set _sc = result.geo.geo_score if result.geo.geo_score is defined else {} %}
+    <meta property="og:title" content="GEO Score: {{ _sc.total|default(0) }}/100 ({{ _sc.grade|default('?') }})" />
+    <meta property="og:description" content="GEO analysis for {{ result.meta.title|default('') }}" />
+    <meta property="og:image" content="https://gc.ranran.tw/results/{{ result_id }}/card.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    {% endif %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -19,7 +27,12 @@
   <body>
     <nav class="result-nav">
       <a href="/" class="nav-brand">GEO Checker</a>
-      <a href="/" class="nav-back">← {{ t["nav.new_check"] }}</a>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <a href="/results/{{ result_id }}/card.png" target="_blank" class="share-btn" title="Download Score Card">
+          Score Card ↓
+        </a>
+        <a href="/" class="nav-back">← {{ t["nav.new_check"] }}</a>
+      </div>
     </nav>
     <div class="container">
       <div class="card">

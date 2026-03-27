@@ -27,6 +27,7 @@ from src.toolkit.schema_generator import (
     generate_all_schemas,
     schemas_to_html,
 )
+from src.toolkit.score_card import generate_card_image_sync
 
 RESULTS_DIR = Path("data/results")
 TEMPLATES = Jinja2Templates(directory="app/templates")
@@ -272,6 +273,35 @@ def results(request: Request, result_id: str) -> object:
             "excerpts": excerpts,
             "toolkit": toolkit,
             "t": get_translations(request),
+        },
+    )
+
+
+@router.get("/results/{result_id}/card.png")
+def score_card_image(result_id: str) -> Response:
+    """Generate and serve GEO Score Card as PNG image."""
+    path = _get_safe_result_path(result_id)
+    if path is None or not path.exists():
+        return Response(status_code=404, content="Not found")
+
+    # Check for cached card image
+    card_path = RESULTS_DIR / f"{result_id}_card.png"
+    if not card_path.exists():
+        result = json.loads(path.read_text())
+        try:
+            generate_card_image_sync(result, str(card_path))
+        except Exception:
+            # Playwright not available — return a fallback
+            return Response(
+                status_code=503,
+                content="Card generation unavailable",
+            )
+
+    return Response(
+        content=card_path.read_bytes(),
+        media_type="image/png",
+        headers={
+            "Cache-Control": "public, max-age=3600",
         },
     )
 
