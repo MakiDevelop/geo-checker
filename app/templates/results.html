@@ -683,12 +683,12 @@
         {% else %}
           <p>{{ t["result.not_found"] }}: {{ result_id }}</p>
         {% endif %}
-        <!-- Action Toolkit (Phase T1-T3) -->
+        <!-- Action Toolkit -->
           {% if toolkit is defined and toolkit %}
           <div class="section" id="action-toolkit">
             <h2>
-              Action Toolkit
-              <span class="info-tip" data-tip="{{ t.get('tooltip.action_toolkit', 'Copy-paste code snippets to improve your GEO score') }}">?</span>
+              {{ t.get("toolkit.title", "Action Toolkit") }}
+              <span class="info-tip" data-tip="{{ t.get('tooltip.action_toolkit', '根據分析結果產生的程式碼片段，複製貼上即可改善 GEO 分數') }}">?</span>
             </h2>
 
             {# Fix Checklist #}
@@ -696,7 +696,7 @@
             {% if checklist %}
             <div style="margin-bottom: 20px;">
               <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">
-                Fix Checklist ({{ checklist|length }} items)
+                {{ t.get("toolkit.checklist.title", "修復清單") }}（{{ checklist|length }} {{ t.get("toolkit.checklist.items", "項") }}）
               </h3>
               <div style="display: flex; flex-direction: column; gap: 8px;">
                 {% for item in checklist %}
@@ -705,14 +705,14 @@
                     <input type="checkbox" style="margin-top: 4px; accent-color: var(--primary);">
                     <div>
                       <div style="font-weight: 600; font-size: 14px;">
-                        <span class="optimization-tag priority-{{ item.priority }}">{{ item.priority }}</span>
-                        {{ item.title }}
+                        <span class="optimization-tag priority-{{ item.priority }}">{{ t.get("toolkit.priority." ~ item.priority, item.priority) }}</span>
+                        {{ t.get("toolkit.fix." ~ item.id, item.title) }}
                       </div>
-                      <div style="font-size: 13px; color: var(--muted); margin-top: 2px;">{{ item.guide }}</div>
+                      <div style="font-size: 13px; color: var(--muted); margin-top: 2px;">{{ t.get("toolkit.guide." ~ item.id, item.guide) }}</div>
                       {% if item.code %}
                       <div style="margin-top: 6px;">
                         <pre class="code-block"><code>{{ item.code }}</code></pre>
-                        <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy</button>
+                        <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='{{ t.get('toolkit.copied', '已複製！') }}';">{{ t.get("toolkit.copy", "複製") }}</button>
                       </div>
                       {% endif %}
                     </div>
@@ -728,11 +728,12 @@
             {% if robots_txt %}
             <details class="section-details" style="margin-bottom: 16px;">
               <summary style="font-weight: 600; cursor: pointer;">
-                robots.txt Generator
+                {{ t.get("toolkit.robots.title", "robots.txt 產生器") }}
               </summary>
+              <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">{{ t.get("toolkit.robots.tip", "將此內容複製到網站根目錄的 robots.txt，讓 AI 爬蟲能正確存取你的內容。") }}</p>
               <div style="margin-top: 10px;">
                 <pre class="code-block" style="max-height: 300px; overflow-y: auto;"><code>{{ robots_txt }}</code></pre>
-                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy robots.txt</button>
+                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='{{ t.get('toolkit.copied', '已複製！') }}';">{{ t.get("toolkit.copy_robots", "複製 robots.txt") }}</button>
               </div>
             </details>
             {% endif %}
@@ -742,11 +743,12 @@
             {% if schema_json %}
             <details class="section-details">
               <summary style="font-weight: 600; cursor: pointer;">
-                JSON-LD Schema Generator
+                {{ t.get("toolkit.schema.title", "JSON-LD Schema 產生器") }}
               </summary>
+              <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">{{ t.get("toolkit.schema.tip", "將此 JSON-LD 結構化資料加到頁面的 <head> 中，幫助 AI 更好地理解你的內容類型和作者資訊。") }}</p>
               <div style="margin-top: 10px;">
                 <pre class="code-block" style="max-height: 300px; overflow-y: auto;"><code>{{ schema_json }}</code></pre>
-                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy Schema</button>
+                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='{{ t.get('toolkit.copied', '已複製！') }}';">{{ t.get("toolkit.copy_schema", "複製 Schema") }}</button>
               </div>
             </details>
             {% endif %}
@@ -756,9 +758,9 @@
           {# AI-Ready Badge #}
           {% if result and result_id %}
           <div class="section" id="badge-embed">
-            <h2>AI-Ready Badge</h2>
+            <h2>{{ t.get("toolkit.badge.title", "AI-Ready 徽章") }}</h2>
             <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">
-              Embed this badge on your website to show your GEO score.
+              {{ t.get("toolkit.badge.desc", "將此徽章嵌入你的網站 footer，展示你的 GEO 分數。訪客點擊可查看完整報告。") }}
             </p>
             <div style="margin-bottom: 12px;">
               <img src="/results/{{ result_id }}/badge.svg" alt="GEO Score Badge" height="22" />
@@ -766,7 +768,7 @@
             <pre class="code-block"><code>&lt;a href="https://gc.ranran.tw/results/{{ result_id }}" target="_blank"&gt;
   &lt;img src="https://gc.ranran.tw/results/{{ result_id }}/badge.svg" alt="GEO Score" height="22" /&gt;
 &lt;/a&gt;</code></pre>
-            <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy Badge Code</button>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='{{ t.get('toolkit.copied', '已複製！') }}';">{{ t.get("toolkit.copy_badge", "複製徽章程式碼") }}</button>
           </div>
           {% endif %}
 
