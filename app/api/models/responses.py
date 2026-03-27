@@ -89,17 +89,33 @@ class XRobotsTag(BaseModel):
     nofollow: bool = False
 
 
+class CrawlerStatus(BaseModel):
+    """Individual crawler status with metadata."""
+
+    status: Literal["allow", "disallow", "unspecified"]
+    display: str = Field(..., description="Display name")
+    vendor: str = Field(..., description="Vendor/company")
+    purpose: str = Field(
+        ..., description="search, training, or both",
+    )
+
+
 class AICrawlerAccess(BaseModel):
-    """AI crawler access status."""
+    """AI crawler access status (v3.0 — 14 crawlers)."""
 
     robots_txt_found: bool
-    gptbot: Literal["allow", "disallow", "unspecified"]
-    claudebot: Literal["allow", "disallow", "unspecified"]
-    perplexitybot: Literal["allow", "disallow", "unspecified"]
-    google_extended: Literal["allow", "disallow", "unspecified"]
+    crawlers: dict[str, CrawlerStatus] = Field(
+        default_factory=dict,
+        description="All crawler statuses with metadata",
+    )
     meta_robots: MetaRobots
     x_robots_tag: XRobotsTag
     notes: str = ""
+    # Legacy flat keys for backward compatibility
+    gptbot: Literal["allow", "disallow", "unspecified"] = "unspecified"
+    claudebot: Literal["allow", "disallow", "unspecified"] = "unspecified"
+    perplexitybot: Literal["allow", "disallow", "unspecified"] = "unspecified"
+    google_extended: Literal["allow", "disallow", "unspecified"] = "unspecified"
 
 
 # === Extended Metrics Models ===
@@ -157,8 +173,67 @@ class CitationPotential(BaseModel):
     signals: list[str]
 
 
+class FreshnessAssessment(BaseModel):
+    """Content freshness assessment."""
+
+    date_published: str = ""
+    date_modified: str = ""
+    has_dates: bool = False
+    score: int = 0
+    max_score: int = 4
+
+
+class EEATAssessment(BaseModel):
+    """E-E-A-T signal assessment."""
+
+    author_name: str = ""
+    score: int = 0
+    max_score: int = 6
+    signals: list[str] = Field(default_factory=list)
+
+
+class ImageQualityAssessment(BaseModel):
+    """Image alt text quality assessment."""
+
+    total_images: int = 0
+    alt_coverage: float = 1.0
+    descriptive_ratio: float = 1.0
+    score: int = 0
+    max_score: int = 3
+
+
+class LlmsTxtAssessment(BaseModel):
+    """llms.txt presence assessment."""
+
+    found: bool = False
+    path: str = ""
+    score: int = 0
+    max_score: int = 2
+
+
+class CitationCoverage(BaseModel):
+    """Citation simulation coverage."""
+
+    score: int = 0
+    max_score: int = 7
+    readiness: str = "minimal"
+    signals: list[str] = Field(default_factory=list)
+
+
+class CitationSimulation(BaseModel):
+    """AI Citation Simulation result."""
+
+    mode: str = "rule_based"
+    mock_query: str = ""
+    cited_snippets: list[dict[str, Any]] = Field(
+        default_factory=list,
+    )
+    citation_preview: str = ""
+    coverage: CitationCoverage | None = None
+
+
 class ExtendedMetrics(BaseModel):
-    """Extended analysis metrics."""
+    """Extended analysis metrics (v3.0)."""
 
     qa_structure: QAStructure
     link_quality: LinkQuality
@@ -167,6 +242,13 @@ class ExtendedMetrics(BaseModel):
     first_paragraph: FirstParagraph
     pronoun_clarity: PronounClarity
     citation_potential: CitationPotential
+    # Phase 3: New signals
+    freshness: FreshnessAssessment | None = None
+    eeat: EEATAssessment | None = None
+    image_quality: ImageQualityAssessment | None = None
+    llms_txt: LlmsTxtAssessment | None = None
+    # Phase 4: Citation simulation
+    citation_simulation: CitationSimulation | None = None
 
 
 # === Main Response Models ===

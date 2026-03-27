@@ -14,21 +14,45 @@ _ISSUE_MESSAGES = {
     "weak_entry": "Weak narrative entry (missing H1/H2 or meta description)",
     "no_facts": "No enumerable facts (lists/tables) found",
     "low_readability": "Content readability is low",
+    "thin_content": "Content is too thin (< 300 words)",
+    "weak_opening": "First paragraph could be stronger",
+    "unclear_pronouns": "Too many ambiguous pronouns",
     "has_faq_schema": "FAQPage schema detected",
     "has_article_schema": "Article schema detected",
+    "has_breadcrumb_schema": "BreadcrumbList schema detected",
     "good_lists": "Good use of lists for content organization",
     "good_definitions": "Good definition density",
-    "quotable_content": "Contains quotable sentences (facts, statistics)",
+    "quotable_content": "Contains quotable sentences",
+    "quotable_diversity": "Multiple types of quotable content",
+    "qa_structure": "Q&A structure detected",
+    "comprehensive_content": "Comprehensive content (1000+ words)",
+    "strong_opening": "Strong opening paragraph",
+    "clear_pronouns": "Clear pronoun usage",
+    "high_citation_potential": "High AI citation potential",
+    "entity_rich": "Rich in named entities",
+    # Phase 3 signals
+    "has_date_signals": "Publication/modification dates present",
+    "no_date_signals": "No date signals (datePublished/dateModified)",
+    "author_identified": "Content author identified",
+    "no_author": "No author information found",
+    "good_alt_text": "Good image alt text coverage",
+    "poor_alt_text": "Some images missing alt text",
 }
 
 # Fix action to human-readable message mapping
 _FIX_MESSAGES = {
-    "update_robots_txt": "Update robots.txt to allow AI crawlers (GPTBot, ClaudeBot, etc.)",
-    "remove_noindex": "Remove noindex directive from meta robots or X-Robots-Tag",
-    "add_schema": "Add Schema.org structured data (Article, FAQPage, HowTo, etc.)",
+    "update_robots_txt": "Update robots.txt to allow AI crawlers",
+    "remove_noindex": "Remove noindex directive",
+    "add_schema": "Add Schema.org structured data (Article, FAQPage, HowTo)",
     "add_h_framing": "Add clear H1/H2 headings and meta description",
     "add_fact_list": "Add lists or tables with enumerable facts",
-    "improve_readability": "Simplify sentences and improve readability score",
+    "improve_readability": "Simplify sentences and improve readability",
+    "expand_content": "Expand content (aim for 500+ words)",
+    "improve_first_paragraph": "Strengthen the first paragraph as a summary",
+    "reduce_pronouns": "Replace ambiguous pronouns with specific nouns",
+    "add_date_metadata": "Add datePublished/dateModified metadata",
+    "add_author_info": "Add author info (JSON-LD Author or meta author)",
+    "improve_alt_text": "Add descriptive alt text to images",
 }
 
 
@@ -79,7 +103,10 @@ def _format_cli(results: dict) -> str:
     grade_colors = {"A": "green", "B": "blue", "C": "yellow", "D": "red", "F": "red bold"}
     grade_color = grade_colors.get(grade, "white")
 
-    lines.append(f"[bold]GEO Score:[/bold] [{grade_color}]{total}/100 ({grade} - {grade_label})[/{grade_color}]")
+    lines.append(
+        f"[bold]GEO Score:[/bold] [{grade_color}]"
+        f"{total}/100 ({grade} - {grade_label})[/{grade_color}]"
+    )
     lines.append("")
 
     # Score breakdown
@@ -104,29 +131,48 @@ def _format_cli(results: dict) -> str:
         else:
             bar_color = "red"
 
-        lines.append(f"  {dimension.capitalize():15} [{bar_color}]{bar}[/{bar_color}] {dim_score}/{dim_max} ({percentage}%)")
+        lines.append(
+            f"  {dimension.capitalize():15} "
+            f"[{bar_color}]{bar}[/{bar_color}] "
+            f"{dim_score}/{dim_max} ({percentage}%)"
+        )
 
     lines.append("")
 
-    # AI Crawler Access
+    # AI Crawler Access (dynamic — supports 14+ crawlers)
     ai_access = geo.get("ai_crawler_access", {})
     lines.append("[bold]AI Crawler Access:[/bold]")
 
-    crawlers = [
-        ("GPTBot", ai_access.get("gptbot", "unknown")),
-        ("ClaudeBot", ai_access.get("claudebot", "unknown")),
-        ("PerplexityBot", ai_access.get("perplexitybot", "unknown")),
-        ("Google-Extended", ai_access.get("google_extended", "unknown")),
-    ]
-
-    for name, status in crawlers:
-        if status == "allow":
-            status_display = "[green]✓ allowed[/green]"
-        elif status == "disallow":
-            status_display = "[red]✗ blocked[/red]"
-        else:
-            status_display = "[yellow]? unspecified[/yellow]"
-        lines.append(f"  {name:18} {status_display}")
+    crawlers_dict = ai_access.get("crawlers", {})
+    if crawlers_dict:
+        for _key, info in crawlers_dict.items():
+            name = info.get("display", _key)
+            status = info.get("status", "unknown")
+            vendor = info.get("vendor", "")
+            if status == "allow":
+                s = "[green]✓ allowed[/green]"
+            elif status == "disallow":
+                s = "[red]✗ blocked[/red]"
+            else:
+                s = "[yellow]? unspecified[/yellow]"
+            label = f"{name} ({vendor})" if vendor else name
+            lines.append(f"  {label:30} {s}")
+    else:
+        # Legacy fallback
+        for name, key in [
+            ("GPTBot", "gptbot"),
+            ("ClaudeBot", "claudebot"),
+            ("PerplexityBot", "perplexitybot"),
+            ("Google-Extended", "google_extended"),
+        ]:
+            status = ai_access.get(key, "unknown")
+            if status == "allow":
+                s = "[green]✓ allowed[/green]"
+            elif status == "disallow":
+                s = "[red]✗ blocked[/red]"
+            else:
+                s = "[yellow]? unspecified[/yellow]"
+            lines.append(f"  {name:18} {s}")
 
     lines.append("")
 
@@ -174,8 +220,16 @@ def _format_cli(results: dict) -> str:
             impact = fix.get("impact", "low")
             msg = _FIX_MESSAGES.get(action, action)
 
-            priority_color = {"critical": "red", "recommended": "yellow", "suggested": "blue"}.get(priority, "white")
-            lines.append(f"  {i}. [{priority_color}][{priority}][/{priority_color}] {msg} (impact: {impact})")
+            pcolors = {
+                "critical": "red",
+                "recommended": "yellow",
+                "suggested": "blue",
+            }
+            pc = pcolors.get(priority, "white")
+            lines.append(
+                f"  {i}. [{pc}][{priority}][/{pc}] "
+                f"{msg} (impact: {impact})"
+            )
         lines.append("")
 
     # Interpretation type
@@ -227,24 +281,33 @@ def _format_markdown(results: dict) -> str:
 
     lines.append("")
 
-    # AI Crawler Access
+    # AI Crawler Access (dynamic)
     lines.append("## AI Crawler Access")
     lines.append("")
     ai_access = geo.get("ai_crawler_access", {})
 
-    lines.append("| Crawler | Status |")
-    lines.append("|---------|--------|")
+    lines.append("| Crawler | Vendor | Purpose | Status |")
+    lines.append("|---------|--------|---------|--------|")
 
-    crawlers = [
-        ("GPTBot", ai_access.get("gptbot", "unknown")),
-        ("ClaudeBot", ai_access.get("claudebot", "unknown")),
-        ("PerplexityBot", ai_access.get("perplexitybot", "unknown")),
-        ("Google-Extended", ai_access.get("google_extended", "unknown")),
-    ]
-
-    for name, status in crawlers:
-        emoji = "✅" if status == "allow" else "❌" if status == "disallow" else "❓"
-        lines.append(f"| {name} | {emoji} {status} |")
+    crawlers_dict = ai_access.get("crawlers", {})
+    if crawlers_dict:
+        for _key, info in crawlers_dict.items():
+            name = info.get("display", _key)
+            vendor = info.get("vendor", "")
+            purpose = info.get("purpose", "")
+            status = info.get("status", "unknown")
+            e = "✅" if status == "allow" else "❌" if status == "disallow" else "❓"
+            lines.append(f"| {name} | {vendor} | {purpose} | {e} {status} |")
+    else:
+        for name, key in [
+            ("GPTBot", "gptbot"),
+            ("ClaudeBot", "claudebot"),
+            ("PerplexityBot", "perplexitybot"),
+            ("Google-Extended", "google_extended"),
+        ]:
+            status = ai_access.get(key, "unknown")
+            e = "✅" if status == "allow" else "❌" if status == "disallow" else "❓"
+            lines.append(f"| {name} | — | — | {e} {status} |")
 
     lines.append("")
 
