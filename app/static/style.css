@@ -1659,6 +1659,63 @@ details[open] summary {
   color: var(--muted);
 }
 
+/* Action Toolkit */
+.code-block {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+  font-family: "SF Mono", Consolas, Monaco, monospace;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+.copy-btn {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: none;
+}
+.copy-btn:hover {
+  background: var(--primary-dim);
+  transform: none;
+  box-shadow: none;
+}
+.checklist-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: all 0.2s;
+}
+.checklist-item:has(input:checked) {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.priority-critical {
+  background: var(--danger);
+  color: white;
+}
+.priority-recommended {
+  background: var(--warning);
+  color: #1b1c1c;
+}
+.priority-suggested {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
 .depth-badge {
   display: inline-block;
   padding: 2px 8px;

@@ -21,6 +21,12 @@ from src.fetcher.ghost_fetcher import is_ghost_url
 from src.fetcher.html_fetcher import fetch_html
 from src.geo.geo_checker import check_geo
 from src.parser.content_parser import parse_content
+from src.toolkit.checklist import generate_checklist
+from src.toolkit.robots_generator import generate_robots_txt
+from src.toolkit.schema_generator import (
+    generate_all_schemas,
+    schemas_to_html,
+)
 
 RESULTS_DIR = Path("data/results")
 TEMPLATES = Jinja2Templates(directory="app/templates")
@@ -245,6 +251,18 @@ def results(request: Request, result_id: str) -> object:
         )
     result = json.loads(path.read_text())
     excerpts = _representative_excerpts(result)
+
+    # Generate Action Toolkit
+    geo = result.get("geo", {})
+    toolkit = {}
+    if geo:
+        toolkit["checklist"] = generate_checklist(geo)
+        toolkit["robots_txt"] = generate_robots_txt(
+            geo, url=result.get("url", ""),
+        )
+        schemas = generate_all_schemas(result)
+        toolkit["schema_json"] = schemas_to_html(schemas)
+
     return TEMPLATES.TemplateResponse(
         "results.html",
         {
@@ -252,6 +270,7 @@ def results(request: Request, result_id: str) -> object:
             "result": result,
             "result_id": result_id,
             "excerpts": excerpts,
+            "toolkit": toolkit,
             "t": get_translations(request),
         },
     )

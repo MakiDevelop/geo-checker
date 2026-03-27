@@ -666,6 +666,76 @@
         {% else %}
           <p>{{ t["result.not_found"] }}: {{ result_id }}</p>
         {% endif %}
+        <!-- Action Toolkit (Phase T1-T3) -->
+          {% if toolkit is defined and toolkit %}
+          <div class="section" id="action-toolkit">
+            <h2>
+              Action Toolkit
+              <span class="info-tip" data-tip="{{ t.get('tooltip.action_toolkit', 'Copy-paste code snippets to improve your GEO score') }}">?</span>
+            </h2>
+
+            {# Fix Checklist #}
+            {% set checklist = toolkit.get("checklist", []) if toolkit is mapping else [] %}
+            {% if checklist %}
+            <div style="margin-bottom: 20px;">
+              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">
+                Fix Checklist ({{ checklist|length }} items)
+              </h3>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                {% for item in checklist %}
+                <div class="checklist-item" data-id="{{ item.id }}">
+                  <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer;">
+                    <input type="checkbox" style="margin-top: 4px; accent-color: var(--primary);">
+                    <div>
+                      <div style="font-weight: 600; font-size: 14px;">
+                        <span class="optimization-tag priority-{{ item.priority }}">{{ item.priority }}</span>
+                        {{ item.title }}
+                      </div>
+                      <div style="font-size: 13px; color: var(--muted); margin-top: 2px;">{{ item.guide }}</div>
+                      {% if item.code %}
+                      <div style="margin-top: 6px;">
+                        <pre class="code-block"><code>{{ item.code }}</code></pre>
+                        <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy</button>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+
+            {# robots.txt Generator #}
+            {% set robots_txt = toolkit.get("robots_txt", "") if toolkit is mapping else "" %}
+            {% if robots_txt %}
+            <details class="section-details" style="margin-bottom: 16px;">
+              <summary style="font-weight: 600; cursor: pointer;">
+                robots.txt Generator
+              </summary>
+              <div style="margin-top: 10px;">
+                <pre class="code-block" style="max-height: 300px; overflow-y: auto;"><code>{{ robots_txt }}</code></pre>
+                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy robots.txt</button>
+              </div>
+            </details>
+            {% endif %}
+
+            {# JSON-LD Schema Generator #}
+            {% set schema_json = toolkit.get("schema_json", "") if toolkit is mapping else "" %}
+            {% if schema_json %}
+            <details class="section-details">
+              <summary style="font-weight: 600; cursor: pointer;">
+                JSON-LD Schema Generator
+              </summary>
+              <div style="margin-top: 10px;">
+                <pre class="code-block" style="max-height: 300px; overflow-y: auto;"><code>{{ schema_json }}</code></pre>
+                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim());this.textContent='Copied!';">Copy Schema</button>
+              </div>
+            </details>
+            {% endif %}
+          </div>
+          {% endif %}
+
         <!-- Level 3: AI Brand Visibility - Vision Preview -->
           <div class="section level3-section">
             <h2>
