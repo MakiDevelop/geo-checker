@@ -166,6 +166,14 @@
   "issues.warning": "警告事項",
   "issues.good": "優良表現",
 
+  "landing.faq.title": "常見問題",
+  "landing.faq.q1": "什麼是 GEO（Generative Engine Optimization）？",
+  "landing.faq.a1": "GEO（生成式引擎優化）是優化網頁內容，讓 AI 搜尋引擎（如 ChatGPT、Perplexity、Gemini、Claude）能正確找到、理解並引用你的內容。SEO 幫助人類在搜尋結果中找到你，GEO 則確保 AI 系統在回答中正確引用你。",
+  "landing.faq.q2": "GEO 和 SEO 有什麼不同？",
+  "landing.faq.a2": "SEO 著重在搜尋結果排名。GEO 著重在被 AI 回答引用。關鍵差異：AI 重視結構化資料（Schema.org、JSON-LD）、清楚的定義、具體事實、和作者權威（E-E-A-T）。Google 排名第一的內容，如果缺少這些信號，ChatGPT 可能完全看不到。",
+  "landing.faq.q3": "GEO Checker 分析什麼？",
+  "landing.faq.a3": "GEO Checker 從三個維度掃描你的頁面：可存取性（14 個 AI 爬蟲能否抓到你的內容？）、結構（標題、列表、Schema.org、問答模式）、品質（可讀性、作者權威、新鮮度、引用潛力）。還會模擬 AI 可能如何引用你的內容，並提供可直接複製貼上的修復程式碼。",
+
   "toolkit.title": "行動工具包",
   "tooltip.action_toolkit": "根據分析結果產生的程式碼片段，複製貼上即可改善 GEO 分數",
   "toolkit.checklist.title": "修復清單",

@@ -11,8 +11,11 @@
     <meta property="og:image" content="https://gc.ranran.tw/static/images/hero.png" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://gc.ranran.tw/" />
+    <meta name="author" content="Maki Chiang" />
+    <meta property="article:published_time" content="2026-01-21T00:00:00Z" />
+    <meta property="article:modified_time" content="2026-03-27T00:00:00Z" />
     <script type="application/ld+json">
-    {
+    [{
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "GEO Checker",
@@ -20,19 +23,62 @@
       "url": "https://gc.ranran.tw",
       "applicationCategory": "SEO Tool",
       "operatingSystem": "Web",
+      "datePublished": "2026-01-21",
+      "dateModified": "2026-03-27",
+      "version": "3.0.0",
+      "author": {
+        "@type": "Person",
+        "name": "Maki Chiang",
+        "url": "https://maki.chiba.tw"
+      },
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "USD"
       },
       "featureList": [
-        "AI crawler access analysis",
-        "Content structure evaluation",
-        "Schema.org detection",
-        "Readability metrics",
-        "GEO score calculation"
+        "14 AI crawler monitoring (GPTBot, ClaudeBot, PerplexityBot, etc.)",
+        "E-E-A-T author authority signals",
+        "Content freshness detection",
+        "llms.txt standard detection",
+        "AI Citation Simulator",
+        "robots.txt generator",
+        "JSON-LD Schema generator",
+        "GEO Score Card for social sharing",
+        "AI-Ready Badge for website embedding",
+        "Multi-URL side-by-side comparison"
       ]
-    }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is GEO (Generative Engine Optimization)?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "GEO is the practice of optimizing web content so AI search engines (ChatGPT, Perplexity, Gemini, Claude) can find, understand, and cite it. While SEO helps humans find your content, GEO ensures AI systems correctly reference it."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How many AI crawlers does GEO Checker monitor?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "GEO Checker monitors 14 AI crawlers including GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, Meta-ExternalAgent, Amazonbot, YouBot, CCBot, PhindBot, cohere-ai, anthropic-ai, and Bytespider."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is GEO Checker free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, GEO Checker is 100% free and open source. No registration required. The tool also provides a free API for developers."
+          }
+        }
+      ]
+    }]
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -163,6 +209,28 @@
       </div>
       <p class="social-proof-note">{{ t["landing.stats.note"] }}</p>
     </section>
+
+    <!-- SEO/GEO Content Section -->
+    <section class="landing-features" style="padding-top: 0;">
+      <div class="features-container">
+        <h2 class="features-title">{{ t.get("landing.faq.title", "FAQ") }}</h2>
+        <div style="max-width: 720px; margin: 0 auto;">
+          <details style="margin-bottom: 12px; background: var(--panel); border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card);">
+            <summary style="font-weight: 600; cursor: pointer;">{{ t.get("landing.faq.q1", "What is GEO?") }}</summary>
+            <p style="margin-top: 10px; color: var(--muted); line-height: 1.7;">{{ t.get("landing.faq.a1", "GEO (Generative Engine Optimization) is the practice of optimizing web content so AI search engines like ChatGPT, Perplexity, Gemini, and Claude can find, understand, and cite it correctly. While SEO helps humans find your content through traditional search, GEO ensures AI systems reference it accurately in their responses.") }}</p>
+          </details>
+          <details style="margin-bottom: 12px; background: var(--panel); border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card);">
+            <summary style="font-weight: 600; cursor: pointer;">{{ t.get("landing.faq.q2", "How is GEO different from SEO?") }}</summary>
+            <p style="margin-top: 10px; color: var(--muted); line-height: 1.7;">{{ t.get("landing.faq.a2", "SEO focuses on ranking in search results pages. GEO focuses on being cited in AI-generated answers. Key differences: AI values structured data (Schema.org, JSON-LD), clear definitions, factual statements, and author authority (E-E-A-T). Content that ranks #1 on Google may be invisible to ChatGPT if it lacks these signals.") }}</p>
+          </details>
+          <details style="margin-bottom: 12px; background: var(--panel); border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card);">
+            <summary style="font-weight: 600; cursor: pointer;">{{ t.get("landing.faq.q3", "What does GEO Checker analyze?") }}</summary>
+            <p style="margin-top: 10px; color: var(--muted); line-height: 1.7;">{{ t.get("landing.faq.a3", "GEO Checker scans your page across three dimensions: Accessibility (can 14 AI crawlers reach your content?), Structure (headings, lists, Schema.org, Q&A patterns), and Quality (readability, author authority, freshness, citation potential). It also simulates how AI might cite your content and provides copy-paste fix code.") }}</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
     <div class="loading-overlay" id="loading-overlay" aria-hidden="true">
       <div class="loading-card">
         <div class="loading-title">{{ t["loading.title"] }}</div>

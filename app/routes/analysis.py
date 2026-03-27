@@ -372,19 +372,50 @@ def download_input(request: Request, result_id: str) -> Response:
 
 @router.get("/robots.txt")
 def robots_txt() -> Response:
-    content = """# GEO Checker - AI Crawler Access
-# Allow all AI crawlers to index this site
+    content = """# GEO Checker — AI-optimized robots.txt
+# https://gc.ranran.tw
 
+# AI Search Crawlers
 User-agent: GPTBot
 Allow: /
 
+User-agent: OAI-SearchBot
+Allow: /
+
 User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
 Allow: /
 
 User-agent: PerplexityBot
 Allow: /
 
 User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: PhindBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Bytespider
 Allow: /
 
 User-agent: *
@@ -395,19 +426,74 @@ Sitemap: https://gc.ranran.tw/sitemap.xml
     return Response(content=content, media_type="text/plain")
 
 
+@router.get("/llms.txt")
+def llms_txt() -> Response:
+    content = """# GEO Checker — AI Content Index
+# https://gc.ranran.tw
+
+> GEO Checker is a free, open-source tool that analyzes
+> web pages for Generative Engine Optimization (GEO).
+> It checks whether AI search engines (ChatGPT, Claude,
+> Perplexity, Gemini) can find, understand, and cite
+> your content.
+
+## Key Pages
+
+- [Home](https://gc.ranran.tw/): Analyze any URL for GEO
+- [Compare](https://gc.ranran.tw/compare): Side-by-side comparison
+- [History](https://gc.ranran.tw/history): Past analysis results
+- [API Docs](https://gc.ranran.tw/api/docs): REST API documentation
+
+## Features
+
+- 14 AI crawler monitoring (GPTBot, ClaudeBot, etc.)
+- E-E-A-T author authority signals
+- Content freshness detection
+- llms.txt standard detection
+- AI Citation Simulator
+- Action Toolkit (robots.txt, Schema, Checklist)
+- GEO Score Card for social sharing
+- AI-Ready Badge for website embedding
+
+## API
+
+- POST /api/v1/analyze — Submit URL for analysis
+- GET /api/v1/jobs/{id} — Get analysis result
+- POST /api/v1/compare — Compare 2-3 URLs
+- GET /api/v1/health — Health check
+
+## Contact
+
+- Website: https://ai.chiba.tw
+- Built by Maki Chiang
+"""
+    return Response(content=content, media_type="text/plain")
+
+
 @router.get("/sitemap.xml")
 def sitemap_xml() -> Response:
     content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://gc.ranran.tw/</loc>
+    <lastmod>2026-03-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://gc.ranran.tw/compare</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://gc.ranran.tw/history</loc>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gc.ranran.tw/api/docs</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
 </urlset>
 """
