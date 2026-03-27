@@ -401,14 +401,23 @@ button:disabled {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #f8fafc;
-  border: 1px solid var(--border);
+  background: var(--panel);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
+  transition: all 0.2s;
+}
+.crawler-item.crawler-core {
+  border-left: 3px solid var(--primary);
+  background: linear-gradient(90deg, var(--primary-bg) 0%, var(--panel) 30%);
 }
 
 .crawler-name {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+}
+.crawler-purpose {
+  font-size: 11px;
+  color: var(--muted-light);
 }
 
 .crawler-status {

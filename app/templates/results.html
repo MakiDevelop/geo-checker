@@ -121,17 +121,18 @@
               <ul class="issue-list">
                 {% for issue in summary.issues.critical %}
                 <li class="issue-item">
-                  <span class="issue-text">{{ t["issue." ~ issue] if t["issue." ~ issue] is defined else issue }}</span>
-                  {% if t["guide." ~ issue ~ ".desc"] is defined %}
+                  {% set ikey = issue.key if issue is mapping else issue %}
+                  <span class="issue-text">{{ t.get("issue." ~ ikey, ikey) }}</span>
+                  {% if t.get("guide." ~ ikey ~ ".desc") %}
                   <details class="issue-guide">
                     <summary>{{ t["guide.how_to_fix"] }}</summary>
                     <div class="guide-content">
-                      <p>{{ t["guide." ~ issue ~ ".desc"] }}</p>
-                      {% if t["guide." ~ issue ~ ".solution"] is defined %}
-                      <p class="guide-solution">{{ t["guide." ~ issue ~ ".solution"] }}</p>
+                      <p>{{ t["guide." ~ ikey ~ ".desc"] }}</p>
+                      {% if t.get("guide." ~ ikey ~ ".solution") %}
+                      <p class="guide-solution">{{ t["guide." ~ ikey ~ ".solution"] }}</p>
                       {% endif %}
-                      {% if t["guide." ~ issue ~ ".code"] is defined %}
-                      <pre class="guide-code">{{ t["guide." ~ issue ~ ".code"] }}</pre>
+                      {% if t.get("guide." ~ ikey ~ ".code") %}
+                      <pre class="guide-code">{{ t["guide." ~ ikey ~ ".code"] }}</pre>
                       {% endif %}
                       {% if t["guide." ~ issue ~ ".tips"] is defined %}
                       <p class="guide-tips">{{ t["guide." ~ issue ~ ".tips"] }}</p>
@@ -153,17 +154,18 @@
               <ul class="issue-list">
                 {% for issue in summary.issues.warning %}
                 <li class="issue-item">
-                  <span class="issue-text">{{ t["issue." ~ issue] if t["issue." ~ issue] is defined else issue }}</span>
-                  {% if t["guide." ~ issue ~ ".desc"] is defined %}
+                  {% set ikey = issue.key if issue is mapping else issue %}
+                  <span class="issue-text">{{ t.get("issue." ~ ikey, ikey) }}</span>
+                  {% if t.get("guide." ~ ikey ~ ".desc") %}
                   <details class="issue-guide">
                     <summary>{{ t["guide.how_to_fix"] }}</summary>
                     <div class="guide-content">
-                      <p>{{ t["guide." ~ issue ~ ".desc"] }}</p>
-                      {% if t["guide." ~ issue ~ ".solution"] is defined %}
-                      <p class="guide-solution">{{ t["guide." ~ issue ~ ".solution"] }}</p>
+                      <p>{{ t["guide." ~ ikey ~ ".desc"] }}</p>
+                      {% if t.get("guide." ~ ikey ~ ".solution") %}
+                      <p class="guide-solution">{{ t["guide." ~ ikey ~ ".solution"] }}</p>
                       {% endif %}
-                      {% if t["guide." ~ issue ~ ".code"] is defined %}
-                      <pre class="guide-code">{{ t["guide." ~ issue ~ ".code"] }}</pre>
+                      {% if t.get("guide." ~ ikey ~ ".code") %}
+                      <pre class="guide-code">{{ t["guide." ~ ikey ~ ".code"] }}</pre>
                       {% endif %}
                       {% if t["guide." ~ issue ~ ".tips"] is defined %}
                       <p class="guide-tips">{{ t["guide." ~ issue ~ ".tips"] }}</p>
@@ -184,7 +186,8 @@
               </div>
               <ul class="issue-list">
                 {% for issue in summary.issues.good %}
-                <li>{{ t["issue." ~ issue] if t["issue." ~ issue] is defined else issue }}</li>
+                {% set ikey = issue.key if issue is mapping else issue %}
+                <li>{{ t.get("issue." ~ ikey, ikey) }}</li>
                 {% endfor %}
               </ul>
             </div>
@@ -220,11 +223,12 @@
               {% set crawlers_dict = crawler.get("crawlers", {}) if crawler is mapping else {} %}
               {% if crawlers_dict %}
               <div class="crawler-grid">
+                {% set core_keys = ["gptbot", "oai_searchbot", "claudebot", "perplexitybot", "google_extended", "applebot_extended"] %}
                 {% for key, info in crawlers_dict.items() %}
-                <div class="crawler-item">
+                <div class="crawler-item{% if key in core_keys %} crawler-core{% endif %}">
                   <div class="crawler-info">
                     <div class="crawler-name">{{ info.display }}</div>
-                    <div class="crawler-company">{{ info.vendor }}</div>
+                    <div class="crawler-company">{{ info.vendor }} · <span class="crawler-purpose">{{ info.purpose }}</span></div>
                   </div>
                   <div class="crawler-status status-{{ info.status }}">
                     {% if info.status == "allow" %}
