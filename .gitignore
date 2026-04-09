@@ -30,3 +30,10 @@ build/
 .claude/cache/
 .claude/settings.local.json
 .gstack/
+
+# Claude Code project config
+CLAUDE.md
+CLAUDE-*.md
+
+# Local DB
+.agentic-memory.db
