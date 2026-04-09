@@ -1,68 +1,93 @@
-# SEO + GEO Checker
+# GEO Checker
 
-## Project Positioning
+> SEO helps content get found. GEO ensures content gets interpreted correctly.
 
-This project targets **GEO (Generative Engine Optimization)** as its primary market.
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 
-The core goal is to evaluate whether content can be:
-- correctly understood by AI / LLM systems,
-- accurately summarized and referenced,
-- and not misinterpreted in AI-driven search or answer generation.
+![GEO Checker Homepage](docs/screenshot-home.png)
 
-Traditional SEO signals are treated **only as structural and readability foundations**.
-They are **not optimization goals** of this project.
+**GEO (Generative Engine Optimization) Checker** analyzes how well your content is understood by AI search engines like ChatGPT, Claude, Perplexity, and Google AI Overviews.
 
-In short:
+**Live demo: [gc.ranran.tw](https://gc.ranran.tw)**
 
-> SEO helps content get found.  
-> GEO ensures content gets interpreted correctly.
+## Why GEO matters
 
-CLI-first skeleton for a local SEO + GEO (Generative Engine Optimization) checker.
+SEO optimizes for search engine *ranking*. But when ChatGPT or Perplexity answers a question, they don't rank pages — they **interpret, summarize, and cite** content. If your page isn't structured for AI comprehension, you're invisible to the next generation of search.
 
-## Usage
+GEO Checker tells you exactly what to fix.
 
-```bash
-python -m src.main run <url-or-path>
-```
+## Features
 
-This project currently outputs placeholders only.
+- **14 AI Crawler Detection** — GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot, Meta AI, and 8 more
+- **GEO Signal Analysis** — E-E-A-T authority, content freshness, image alt text quality, llms.txt, Schema.org structured data
+- **AI Citation Simulator** — Preview how AI engines would summarize and cite your content
+- **GEO Score Card** — Shareable visual score card (1200x630 OG image)
+- **Compare Mode** — Side-by-side analysis of multiple pages
+- **Action Toolkit** — Fix checklist, robots.txt generator, Schema.org generator
+- **Multilingual** — Full English and Traditional Chinese support
 
-## Web UI / Web 介面
+![Analysis Result](docs/screenshot-result.png)
 
-Start the server (FastAPI) and open `http://localhost:8000`.
-啟動 FastAPI 伺服器後，開啟 `http://localhost:8000`。
+## Quickstart
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+### Use the hosted version
 
-## Parsing Setup / 解析環境
+Visit **[gc.ranran.tw](https://gc.ranran.tw)** — no installation needed.
 
-spaCy model is required for entity extraction.
-Entity 抽取需要安裝 spaCy model。
+### Run locally
 
 ```bash
+git clone https://github.com/MakiDevelop/geo-checker.git
+cd geo-checker
+pip install -r requirements.txt
 python -m spacy download en_core_web_sm
+
+# Web UI
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+# → http://localhost:8000
+
+# CLI
+python -m src.main run https://example.com
 ```
 
-## Architecture / 架構
+### Run with Docker
 
-This project is CLI-first and fully local. It only performs analysis and risk hints.
-本專案以 CLI 為主、完全在本地端執行，只做分析與風險提示。
+```bash
+docker compose up -d
+# → http://localhost:8000
+```
 
-## Data Flow / 資料流
+## Architecture
 
-1. `src/main.py` parses CLI args and orchestrates the flow.
-   `src/main.py` 負責解析參數並串接流程。
-2. `src/fetcher/html_fetcher.py` retrieves raw HTML from a URL or file.
-   `src/fetcher/html_fetcher.py` 從 URL 或檔案取得原始 HTML。
-3. `src/parser/content_parser.py` extracts main content and basic structure.
-   `src/parser/content_parser.py` 抽取主要內容與基本結構。
-4. `src/seo/seo_checker.py` runs mechanical SEO checks.
-   `src/seo/seo_checker.py` 執行可機械驗證的 SEO 規則檢查。
-5. `src/geo/geo_checker.py` runs AI/LLM readability and risk heuristics.
-   `src/geo/geo_checker.py` 執行 AI/LLM 可理解性與風險 heuristic。
-6. `src/ai/ai_simulator.py` optionally simulates a local LLM summary.
-   `src/ai/ai_simulator.py` 可選，用於本地 LLM 摘要模擬。
-7. `src/report/formatter.py` formats results for CLI/JSON/Markdown output.
-   `src/report/formatter.py` 統一輸出格式（CLI/JSON/Markdown）。
+```
+URL input
+  │
+  ├─ src/fetcher/     → Fetch HTML
+  ├─ src/parser/      → Extract main content
+  ├─ src/seo/         → Mechanical SEO checks
+  ├─ src/geo/         → AI readability & risk heuristics
+  ├─ src/ai/          → LLM citation simulation
+  └─ src/report/      → Format output (CLI/JSON/Markdown)
+```
+
+- **CLI-first, fully local** — no data leaves your machine
+- **Web UI** — FastAPI-powered dashboard for visual analysis
+- **Docker-ready** — one command to deploy
+
+## Tech Stack
+
+| Component | Choice |
+|-----------|--------|
+| Backend | FastAPI + Python 3.11+ |
+| NLP | spaCy (entity extraction) |
+| Container | Docker + Traefik |
+| Frontend | Vanilla HTML/CSS/JS |
+
+## Contributing
+
+Issues and PRs welcome. See [docs/](docs/) for design decisions and RFCs.
+
+## License
+
+MIT
