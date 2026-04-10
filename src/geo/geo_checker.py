@@ -844,20 +844,20 @@ def _score_quality(
     stats = parsed.get("stats", {})
 
     # Readability (0-6 points)
-    if readability.get("available"):
-        flesch = readability.get("flesch_reading_ease", 50)
-        if flesch >= 60:
-            score += 6
-        elif flesch >= 50:
-            score += 5
-        elif flesch >= 40:
-            score += 4
-        elif flesch >= 30:
-            score += 2
-        else:
-            score += 1
+    flesch = readability.get("flesch_reading_ease") if readability.get("available") else None
+    if flesch is None:
+        # Not available, or CJK content (Flesch doesn't apply) — neutral default
+        score += 3
+    elif flesch >= 60:
+        score += 6
+    elif flesch >= 50:
+        score += 5
+    elif flesch >= 40:
+        score += 4
+    elif flesch >= 30:
+        score += 2
     else:
-        score += 3  # Default when not available
+        score += 1
 
     # Entity richness (0-4 points)
     entity_count = len(entities)
@@ -1042,7 +1042,8 @@ def _generate_summary(
         issues["warning"].append({"key": "no_facts"})
 
     readability = parsed.get("readability", {})
-    if readability.get("available") and readability.get("flesch_reading_ease", 100) < 40:
+    flesch_score = readability.get("flesch_reading_ease")
+    if readability.get("available") and flesch_score is not None and flesch_score < 40:
         issues["warning"].append({"key": "low_readability"})
 
     # Check content depth

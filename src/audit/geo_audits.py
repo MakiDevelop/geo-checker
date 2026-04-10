@@ -223,7 +223,10 @@ class HeadingStructureAudit(BaseAudit):
             score = max(0, score - 10)
             recommendation = "Use only one H1 per page"
         else:
-            recommendation = None if score >= 75 else "Add more subheadings (H2, H3) to organize content"
+            recommendation = (
+                None if score >= 75
+                else "Add more subheadings (H2, H3) to organize content"
+            )
 
         return AuditResult(
             audit_id=self.audit_id,
@@ -285,7 +288,10 @@ class SchemaOrgAudit(BaseAudit):
                 passed=False,
                 message="No Schema.org structured data found",
                 details={},
-                recommendation="Add Schema.org markup (Article, FAQPage, HowTo) for better AI understanding",
+                recommendation=(
+                    "Add Schema.org markup (Article, FAQPage, HowTo) "
+                    "for better AI understanding"
+                ),
             )
 
         types_found = schema.get("types_found", [])
@@ -372,8 +378,8 @@ class ContentQualityAudit(BaseAudit):
         positives = []
 
         # Readability (30 points)
-        if readability.get("available"):
-            flesch = readability.get("flesch_reading_ease", 50)
+        if readability.get("available") and readability.get("flesch_reading_ease") is not None:
+            flesch = readability["flesch_reading_ease"]
             cfg = settings.geo_scoring
 
             if flesch >= cfg.flesch_excellent_threshold:
