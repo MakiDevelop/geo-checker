@@ -108,6 +108,53 @@
           </div>
           {% endif %}
 
+          <!-- Score Trend -->
+          {% if trend_data %}
+          <div class="section">
+            <h2>{{ t.get("trend.title", "Score Trend") }}</h2>
+            <p class="section-desc">{{ t.get("trend.desc", "Track how this URL's GEO score changes over time.") }}</p>
+            <div
+              class="trend-chart"
+              id="trend-chart"
+              data-points='{{ trend_data|tojson }}'
+              data-empty-label='{{ t.get("trend.need_more", "Need more scans for trend") }}'
+            ></div>
+            <div class="trend-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{{ t.get("trend.table.date", "Date") }}</th>
+                    <th>{{ t.get("trend.table.score", "Score") }}</th>
+                    <th>{{ t.get("trend.table.grade", "Grade") }}</th>
+                    <th>{{ t.get("trend.table.change", "Change") }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in trend_data %}
+                  <tr>
+                    <td>{{ item.scanned_at[:10] if item.scanned_at else "—" }}</td>
+                    <td>{{ item.total_score }}</td>
+                    <td>
+                      <span class="grade-badge{% if item.grade %} grade-{{ item.grade|lower }}{% endif %}">
+                        {{ item.grade or "—" }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if not loop.last %}
+                        {% set delta = item.total_score - trend_data[loop.index].total_score %}
+                        {% if delta > 0 %}+{{ delta }}{% elif delta < 0 %}{{ delta }}{% else %}—{% endif %}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+
           <!-- Priority Fixes -->
           {% if summary and summary.issues %}
           <div class="section">
@@ -684,17 +731,46 @@
           <p>{{ t["result.not_found"] }}: {{ result_id }}</p>
         {% endif %}
         <!-- Action Toolkit -->
-          {% if toolkit is defined and toolkit %}
+          {% if (toolkit is defined and toolkit) or (fix_snippets is defined and fix_snippets) %}
           <div class="section" id="action-toolkit">
             <h2>
               {{ t.get("toolkit.title", "Action Toolkit") }}
               <span class="info-tip" data-tip="{{ t.get('tooltip.action_toolkit', '根據分析結果產生的程式碼片段，複製貼上即可改善 GEO 分數') }}">?</span>
             </h2>
 
+            {% if fix_snippets %}
+            <div class="toolkit-subsection">
+              <h3>{{ t.get("fix_snippets.title", "Fix Snippets") }}</h3>
+              <p class="section-desc">{{ t.get("fix_snippets.desc", "Copy-paste ready fixes for your site") }}</p>
+              {% for fix in fix_snippets %}
+              <div class="fix-card fix-{{ fix.priority }}">
+                <div class="fix-header">
+                  <span class="fix-priority-badge fix-priority-{{ fix.priority }}">
+                    {{ t.get("toolkit.priority." ~ fix.priority, fix.priority) }}
+                  </span>
+                  <span class="fix-title">{{ fix.title }}</span>
+                  <span class="fix-file-hint">{{ fix.file_hint }}</span>
+                </div>
+                <p class="fix-explanation">{{ fix.explanation }}</p>
+                {% if fix.current_value != "missing" %}
+                <div class="fix-current">
+                  <span class="fix-label">{{ t.get("fix_snippets.current", "Current") }}:</span>
+                  <code>{{ fix.current_value }}</code>
+                </div>
+                {% endif %}
+                <div class="fix-code-wrapper">
+                  <button class="copy-btn fix-copy-btn" onclick="copyCode(this)">{{ t.get("toolkit.copy", "Copy") }}</button>
+                  <pre class="fix-code"><code>{{ fix.code_snippet }}</code></pre>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+
             {# Fix Checklist #}
             {% set checklist = toolkit.get("checklist", []) if toolkit is mapping else [] %}
             {% if checklist %}
-            <div style="margin-bottom: 20px;">
+            <div class="toolkit-subsection" style="margin-bottom: 20px;">
               <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">
                 {{ t.get("toolkit.checklist.title", "修復清單") }}（{{ checklist|length }} {{ t.get("toolkit.checklist.items", "項") }}）
               </h3>
@@ -820,7 +896,8 @@
       (function() {
         const resultId = "{{ result_id }}";
         const url = "{{ result.url if result else '' }}";
-        const score = {{ result.content_surface_size.score if result and result.content_surface_size else 'null' }};
+        const score = {{ result.geo.geo_score.total if result and result.geo is defined and result.geo.geo_score is defined else 'null' }};
+        const grade = "{{ result.geo.geo_score.grade if result and result.geo is defined and result.geo.geo_score is defined else '' }}";
         const createdAt = "{{ result.created_at if result else '' }}";
 
         if (resultId && url) {
@@ -834,6 +911,7 @@
             id: resultId,
             url: url,
             score: score,
+            grade: grade,
             created_at: createdAt
           });
 
@@ -845,5 +923,6 @@
       })();
     </script>
     <script src="/static/js/score-animation.js"></script>
+    <script src="/static/js/trend-chart.js"></script>
   </body>
 </html>

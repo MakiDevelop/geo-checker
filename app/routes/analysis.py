@@ -17,12 +17,14 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from app.i18n import get_translations
+from src.db.store import get_conn, get_url_history, init_db, save_scan, upsert_url
 from src.fetcher.ghost_fetcher import is_ghost_url
 from src.fetcher.html_fetcher import fetch_html
 from src.geo.geo_checker import check_geo
 from src.parser.content_parser import parse_content
 from src.toolkit.badge import generate_badge_svg
 from src.toolkit.checklist import generate_checklist
+from src.toolkit.fix_generator import generate_fixes
 from src.toolkit.robots_generator import generate_robots_txt
 from src.toolkit.schema_generator import (
     generate_all_schemas,
@@ -171,6 +173,151 @@ def _build_llm_input(result: dict) -> dict:
     }
 
 
+def _parse_timestamp(value: str) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _extract_result_score(data: dict) -> int | None:
+    geo_score = data.get("geo", {}).get("geo_score", {})
+    if geo_score.get("total") is not None:
+        return int(geo_score.get("total", 0))
+    surface = data.get("content_surface_size", {})
+    if surface.get("score") is not None:
+        return int(surface.get("score", 0))
+    return None
+
+
+def _extract_result_grade(data: dict) -> str:
+    return str(data.get("geo", {}).get("geo_score", {}).get("grade", ""))
+
+
+def _load_json_result_records() -> list[dict]:
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    records = []
+
+    for path in RESULTS_DIR.glob("*.json"):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        scanned_at = str(data.get("created_at", ""))
+        parsed_dt = _parse_timestamp(scanned_at)
+        if parsed_dt is None:
+            parsed_dt = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+
+        records.append(
+            {
+                "result_id": str(data.get("analysis_id", path.stem)),
+                "url": str(data.get("url", "")),
+                "total_score": _extract_result_score(data),
+                "grade": _extract_result_grade(data),
+                "scanned_at": scanned_at,
+                "_parsed_dt": parsed_dt,
+            }
+        )
+
+    records.sort(key=lambda item: item["_parsed_dt"], reverse=True)
+    return records
+
+
+def _get_json_url_history(url: str, *, limit: int = 20) -> list[dict]:
+    if not url:
+        return []
+
+    history = []
+    for item in _load_json_result_records():
+        if item["url"] != url:
+            continue
+        if item["total_score"] is None:
+            continue
+        history.append(
+            {
+                "scan_id": item["result_id"],
+                "result_id": item["result_id"],
+                "total_score": int(item["total_score"]),
+                "grade": item["grade"],
+                "scanned_at": item["scanned_at"],
+                "dimensions": {},
+            }
+        )
+        if len(history) >= limit:
+            break
+    return history
+
+
+def _attach_result_ids(items: list[dict], json_records: list[dict]) -> None:
+    records_by_url: dict[str, list[dict]] = {}
+    for record in json_records:
+        records_by_url.setdefault(record["url"], []).append(record)
+
+    used_result_ids: set[str] = set()
+    max_match_delta_seconds = 300
+
+    for item in items:
+        item["result_id"] = item.get("result_id", "") or ""
+        candidates = records_by_url.get(str(item.get("url", "")), [])
+        if not candidates:
+            continue
+
+        target_dt = _parse_timestamp(str(item.get("scanned_at", "")))
+        chosen: dict | None = None
+        chosen_delta: float | None = None
+
+        for record in candidates:
+            result_id = str(record["result_id"])
+            if result_id in used_result_ids:
+                continue
+
+            record_dt = record.get("_parsed_dt")
+            if target_dt is not None and isinstance(record_dt, datetime):
+                delta = abs((record_dt - target_dt).total_seconds())
+                if chosen is None or chosen_delta is None or delta < chosen_delta:
+                    chosen = record
+                    chosen_delta = delta
+            elif chosen is None:
+                chosen = record
+
+        if chosen is None:
+            continue
+
+        if chosen_delta is not None and chosen_delta > max_match_delta_seconds:
+            continue
+
+        item["result_id"] = str(chosen["result_id"])
+        used_result_ids.add(item["result_id"])
+
+
+def _load_history_items_from_json(*, limit: int = 20) -> list[dict]:
+    items = []
+    for record in _load_json_result_records()[:limit]:
+        score = record["total_score"]
+        if score is None:
+            continue
+        trend_history = _get_json_url_history(record["url"], limit=5)
+        items.append(
+            {
+                "scan_id": record["result_id"],
+                "result_id": record["result_id"],
+                "url": record["url"],
+                "total_score": int(score),
+                "grade": record["grade"],
+                "scanned_at": record["scanned_at"],
+                "trend_history": trend_history,
+            }
+        )
+    return items
+
+
 @router.get("/")
 def index(request: Request) -> object:
     # Generate signed CSRF token (works across multiple workers)
@@ -204,11 +351,21 @@ def analyze(
             result, fetch_result.html, analysis_url,
             draft_mode=draft_mode, fetch_result=fetch_result,
         )
+        result["draft_mode"] = draft_mode
         result["analysis_id"] = result_id
         result["created_at"] = datetime.now(UTC).isoformat()
         (RESULTS_DIR / f"{result_id}.json").write_text(
             json.dumps(result, ensure_ascii=True, indent=2)
         )
+
+        conn = get_conn()
+        try:
+            init_db(conn)
+            url_id = upsert_url(conn, analysis_url)
+            save_scan(conn, url_id, result)
+        finally:
+            conn.close()
+
         return RedirectResponse(url=f"/results/{result_id}", status_code=303)
     except Exception as e:
         # Return error page instead of 500
@@ -257,6 +414,7 @@ def results(request: Request, result_id: str) -> object:
     # Generate Action Toolkit
     geo = result.get("geo", {})
     toolkit = {}
+    fix_snippets = []
     if geo:
         toolkit["checklist"] = generate_checklist(geo)
         toolkit["robots_txt"] = generate_robots_txt(
@@ -264,6 +422,19 @@ def results(request: Request, result_id: str) -> object:
         )
         schemas = generate_all_schemas(result)
         toolkit["schema_json"] = schemas_to_html(schemas)
+        fix_snippets = generate_fixes(geo, result, url=result.get("url", ""))
+
+    trend_data = []
+    analyzed_url = result.get("url", "")
+    if analyzed_url:
+        conn = get_conn()
+        try:
+            init_db(conn)
+            trend_data = get_url_history(conn, analyzed_url, limit=10)
+        finally:
+            conn.close()
+        if not trend_data:
+            trend_data = _get_json_url_history(analyzed_url, limit=10)
 
     return TEMPLATES.TemplateResponse(
         "results.html",
@@ -273,6 +444,8 @@ def results(request: Request, result_id: str) -> object:
             "result_id": result_id,
             "excerpts": excerpts,
             "toolkit": toolkit,
+            "fix_snippets": fix_snippets,
+            "trend_data": trend_data,
             "t": get_translations(request),
         },
     )
@@ -335,21 +508,40 @@ def badge_svg(result_id: str) -> Response:
 
 @router.get("/history")
 def history(request: Request) -> object:
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    items = sorted(RESULTS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-    history_items = []
-    for path in items[:20]:
-        data = json.loads(path.read_text())
-        surface = data.get("content_surface_size", {})
-        score = surface.get("score")
-        history_items.append({
-            "id": data.get("analysis_id", path.stem),
-            "target": data.get("url", ""),
-            "created_at": data.get("created_at", ""),
-            "surface_score": score,
-        })
+    history_items: list[dict] = []
+    history_source = "sqlite"
+    json_records = _load_json_result_records()
+
+    conn = get_conn()
+    try:
+        init_db(conn)
+        rows = conn.execute(
+            """
+            SELECT s.id AS scan_id, u.url, s.total_score, s.grade, s.scanned_at
+            FROM scans s JOIN urls u ON u.id = s.url_id
+            ORDER BY s.scanned_at DESC, s.id DESC LIMIT 20
+            """
+        ).fetchall()
+        history_items = [dict(row) for row in rows]
+        for item in history_items:
+            item["trend_history"] = get_url_history(conn, item["url"], limit=5)
+    finally:
+        conn.close()
+
+    if history_items:
+        _attach_result_ids(history_items, json_records)
+    else:
+        history_source = "json"
+        history_items = _load_history_items_from_json(limit=20)
+
     return TEMPLATES.TemplateResponse(
-        "history.html", {"request": request, "items": history_items, "t": get_translations(request)}
+        "history.html",
+        {
+            "request": request,
+            "items": history_items,
+            "history_source": history_source,
+            "t": get_translations(request),
+        },
     )
 
 
