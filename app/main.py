@@ -1,6 +1,7 @@
 """FastAPI entry point."""
 import time
 from collections import defaultdict
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,13 @@ from app.api.v1.router import router as api_router
 from app.routes.analysis import router as analysis_router
 from src.config.settings import settings
 from src.scheduler.rescan_scheduler import start_scheduler, stop_scheduler
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    start_scheduler()
+    yield
+    stop_scheduler()
 
 # Rate limiting configuration (for web UI)
 RATE_LIMIT_REQUESTS = settings.security.rate_limit_requests
@@ -128,6 +136,7 @@ class APIRateLimitHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(
+    lifespan=lifespan,
     title="GEO Checker API",
     description="""
 API for analyzing web pages for Generative Engine Optimization (GEO).
@@ -187,11 +196,3 @@ app.include_router(analysis_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
-@app.on_event("startup")
-async def _startup() -> None:
-    start_scheduler()
-
-
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    stop_scheduler()

@@ -324,8 +324,9 @@ def index(request: Request) -> object:
     csrf_token = _generate_csrf_token()
 
     return TEMPLATES.TemplateResponse(
+        request,
         "index.html",
-        {"request": request, "t": get_translations(request), "csrf_token": csrf_token},
+        {"t": get_translations(request), "csrf_token": csrf_token},
     )
 
 
@@ -384,9 +385,9 @@ def analyze(
             error_message = f"Failed to analyze {url}: {error_message}"
 
         return TEMPLATES.TemplateResponse(
+            request,
             "index.html",
             {
-                "request": request,
                 "t": get_translations(request),
                 "csrf_token": _generate_csrf_token(),
                 "error": error_message,
@@ -400,9 +401,9 @@ def results(request: Request, result_id: str) -> object:
     path = _get_safe_result_path(result_id)
     if path is None or not path.exists():
         return TEMPLATES.TemplateResponse(
+            request,
             "results.html",
             {
-                "request": request,
                 "result": None,
                 "result_id": result_id,
                 "t": get_translations(request),
@@ -437,9 +438,9 @@ def results(request: Request, result_id: str) -> object:
             trend_data = _get_json_url_history(analyzed_url, limit=10)
 
     return TEMPLATES.TemplateResponse(
+        request,
         "results.html",
         {
-            "request": request,
             "result": result,
             "result_id": result_id,
             "excerpts": excerpts,
@@ -535,9 +536,9 @@ def history(request: Request) -> object:
         history_items = _load_history_items_from_json(limit=20)
 
     return TEMPLATES.TemplateResponse(
+        request,
         "history.html",
         {
-            "request": request,
             "items": history_items,
             "history_source": history_source,
             "t": get_translations(request),
@@ -694,14 +695,14 @@ def sitemap_xml() -> Response:
 @router.get("/terms")
 def terms(request: Request) -> object:
     return TEMPLATES.TemplateResponse(
-        "terms.html", {"request": request, "t": get_translations(request)}
+        request, "terms.html", {"t": get_translations(request)}
     )
 
 
 @router.get("/privacy")
 def privacy(request: Request) -> object:
     return TEMPLATES.TemplateResponse(
-        "privacy.html", {"request": request, "t": get_translations(request)}
+        request, "privacy.html", {"t": get_translations(request)}
     )
 
 
@@ -710,8 +711,9 @@ def compare_page(request: Request) -> object:
     """Render the compare input page."""
     csrf_token = _generate_csrf_token()
     return TEMPLATES.TemplateResponse(
+        request,
         "compare.html",
-        {"request": request, "t": get_translations(request), "csrf_token": csrf_token},
+        {"t": get_translations(request), "csrf_token": csrf_token},
     )
 
 
@@ -765,9 +767,9 @@ def compare_submit(
     # Check if we have enough results
     if len(results) < 2:
         return TEMPLATES.TemplateResponse(
+            request,
             "compare.html",
             {
-                "request": request,
                 "t": get_translations(request),
                 "csrf_token": _generate_csrf_token(),
                 "error": "Could not analyze enough URLs. Please check the URLs and try again.",
@@ -797,9 +799,9 @@ def compare_submit(
     )
 
     return TEMPLATES.TemplateResponse(
+        request,
         "compare-results.html",
         {
-            "request": request,
             "t": get_translations(request),
             "comparison_id": comparison_id,
             "urls": {item["id"]: item["url"] for item in urls},
@@ -817,9 +819,9 @@ def compare_results_page(request: Request, comparison_id: str) -> object:
     # Validate comparison_id format
     if not re.match(r"^[a-f0-9]{32}$", comparison_id):
         return TEMPLATES.TemplateResponse(
+            request,
             "compare-results.html",
             {
-                "request": request,
                 "t": get_translations(request),
                 "comparison_id": comparison_id,
                 "error": "Comparison not found",
@@ -829,9 +831,9 @@ def compare_results_page(request: Request, comparison_id: str) -> object:
     path = RESULTS_DIR / f"compare_{comparison_id}.json"
     if not path.exists():
         return TEMPLATES.TemplateResponse(
+            request,
             "compare-results.html",
             {
-                "request": request,
                 "t": get_translations(request),
                 "comparison_id": comparison_id,
                 "error": "Comparison not found",
@@ -840,9 +842,9 @@ def compare_results_page(request: Request, comparison_id: str) -> object:
 
     data = json.loads(path.read_text())
     return TEMPLATES.TemplateResponse(
+        request,
         "compare-results.html",
         {
-            "request": request,
             "t": get_translations(request),
             "comparison_id": comparison_id,
             "urls": data.get("urls", {}),
