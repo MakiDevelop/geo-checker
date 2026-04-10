@@ -9,6 +9,8 @@ services:
       - ./data:/app/data
     env_file:
       - .env
+    environment:
+      - GEO_CHECKER_ENABLE_SCHEDULER=1
     networks:
       - abd-network
     labels:

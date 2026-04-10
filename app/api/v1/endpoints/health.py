@@ -9,7 +9,7 @@ from app.api.models.responses import HealthResponse
 
 router = APIRouter(tags=["Health"])
 
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 
 
 @router.get(

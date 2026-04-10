@@ -19,6 +19,7 @@ GEO Checker tells you exactly what to fix.
 
 ## Features
 
+### Core Analysis
 - **14 AI Crawler Detection** — GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot, Meta AI, and 8 more
 - **GEO Signal Analysis** — E-E-A-T authority, content freshness, image alt text quality, llms.txt, Schema.org structured data
 - **AI Citation Simulator** — Preview how AI engines would summarize and cite your content
@@ -26,6 +27,15 @@ GEO Checker tells you exactly what to fix.
 - **Compare Mode** — Side-by-side analysis of multiple pages
 - **Action Toolkit** — Fix checklist, robots.txt generator, Schema.org generator
 - **Multilingual** — Full English and Traditional Chinese support
+
+### v4.0 — Persistence, Trends & Live Probe
+- **SQLite Persistence** — Scan history survives restarts (URLs, scans, findings, crawler status)
+- **Trend Tracking** — SVG line chart on results page + diff between two scans
+- **Fix Snippets** — Copy-paste ready fixes (robots.txt, JSON-LD, meta tags, nginx config)
+- **Live AI Probe (BYOK)** — Actually ask Perplexity whether your URL gets cited. Bring your own API key — stored only in your browser
+- **Scheduled Rescan** — Hourly / daily / weekly auto rescans (opt-in via `GEO_CHECKER_ENABLE_SCHEDULER=1`)
+- **Webhook Alerts** — Generic HTTP POST when grade drops or score falls below threshold. Route to Slack / Telegram / LINE via n8n / Zapier
+- **Monitoring API** — `GET/PUT /api/v1/monitoring`, `GET /api/v1/trends/{url}`, `GET /api/v1/trends/diff`, `GET /api/v1/fixes/{job_id}`, `POST /api/v1/probe`
 
 ![Analysis Result](docs/screenshot-result.png)
 
