@@ -69,7 +69,7 @@ def test_validate_webhook_url_rejects_non_http_scheme() -> None:
     is_valid, reason = validate_webhook_url("ftp://hooks.example.com/test")
 
     assert is_valid is False
-    assert reason == "webhook_url must start with http:// or https://"
+    assert reason == "URL must start with http:// or https://"
 
 
 def test_validate_webhook_url_accepts_public_https_url(
@@ -121,3 +121,38 @@ def test_host_allowlist_can_bypass_blocked_ip(
 
     assert is_valid is True
     assert reason == ""
+
+
+def test_respect_allowlist_false_ignores_host_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """fetch path passes respect_allowlist=False; allowlist must NOT bypass IP check."""
+    from src.security.url_guard import UnsafeWebhookTarget, resolve_webhook_target
+
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: _addrinfo_for("127.0.0.1"),
+    )
+    monkeypatch.setattr(settings.security, "webhook_host_allowlist", ["evil.example.com"])
+    monkeypatch.setattr(settings.security, "webhook_cidr_allowlist", ["127.0.0.0/8"])
+
+    with pytest.raises(UnsafeWebhookTarget):
+        resolve_webhook_target(
+            "https://evil.example.com/x",
+            respect_allowlist=False,
+        )
+
+
+def test_invalid_port_returns_validation_error() -> None:
+    """Out-of-range port must surface as WebhookValidationError, not ValueError."""
+    from src.security.url_guard import WebhookValidationError, validate_webhook_url
+
+    is_valid, reason = validate_webhook_url("https://hooks.example.com:99999/x")
+    assert is_valid is False
+    assert "port" in reason.lower()
+
+    # also confirm resolve_webhook_target raises the right type
+    from src.security.url_guard import resolve_webhook_target
+    with pytest.raises(WebhookValidationError):
+        resolve_webhook_target("https://hooks.example.com:99999/x")
