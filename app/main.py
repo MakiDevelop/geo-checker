@@ -223,34 +223,13 @@ class APIRateLimitHeadersMiddleware(BaseHTTPMiddleware):
 app = FastAPI(
     lifespan=lifespan,
     title="GEO Checker API",
-    description="""
-API for analyzing web pages for Generative Engine Optimization (GEO).
-
-## Features
-
-- **GEO Score**: 0-100 score across accessibility, structure, and quality dimensions
-- **AI Crawler Access**: Check robots.txt rules for GPTBot, ClaudeBot, etc.
-- **Content Analysis**: Headings, lists, tables, Schema.org markup
-- **Readability Metrics**: Flesch score, reading level, content depth
-
-## Authentication
-
-API requests can be made:
-- **Anonymous**: Lower rate limits (5 req/min)
-- **With API Key**: Higher rate limits (30+ req/min)
-
-Pass API key via `X-API-Key` header or `Authorization: Bearer <key>`.
-
-## Async Processing
-
-Analysis runs asynchronously:
-1. `POST /api/v1/analyze` - Submit URL, get `job_id`
-2. `GET /api/v1/jobs/{job_id}` - Poll for results
-""",
     version="4.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    # Public-facing instance: disable Swagger / ReDoc / OpenAPI schema to
+    # remove the enumeration surface. Re-enable behind auth (or only in
+    # debug builds) when there is a real consumer that needs the spec.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # CORS middleware (for API cross-origin requests)
