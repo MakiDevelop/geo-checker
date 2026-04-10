@@ -468,6 +468,16 @@
               {{ t["result.section.readability"] }}
               <span class="info-tip" data-tip="{{ t['tooltip.readability'] }}">?</span>
             </h2>
+            {% if readability.language == "cjk" %}
+            <p class="section-desc">Flesch 等英文可讀性指標不適用於中文內容，僅顯示閱讀時間。</p>
+            <div class="readability-grid">
+              <div class="readability-item">
+                <div class="readability-value">{{ readability.reading_time_minutes|default(0)|round(1) }} {{ t["readability.minutes"] }}</div>
+                <div class="readability-label">{{ t["readability.time.label"] }}</div>
+                <div class="readability-desc">中文閱讀速度約 400 字/分鐘</div>
+              </div>
+            </div>
+            {% else %}
             <div class="readability-grid">
               <div class="readability-item">
                 <div class="readability-value">{{ readability.flesch_reading_ease|default(0)|round(1) }}</div>
@@ -491,6 +501,7 @@
                 <div class="readability-desc">{{ t["readability.time.note"] }}</div>
               </div>
             </div>
+            {% endif %}
           </div>
           {% endif %}
 

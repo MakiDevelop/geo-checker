@@ -270,25 +270,72 @@ def _detect_quotable_sentences(text: str) -> list[dict]:
     return quotable[:5]  # Return top 5 quotable sentences
 
 
+def _is_cjk_dominant(text: str, threshold: float = 0.3) -> bool:
+    """Return True if CJK characters make up >= threshold of the text.
+
+    Flesch / Gunning Fog / SMOG and friends are English-oriented. On CJK text
+    they misinterpret characters as words and produce nonsense values
+    (e.g. Flesch = -60 or Grade = 61), so we use this to skip textstat entirely.
+    """
+    if not text:
+        return False
+
+    cjk_count = 0
+    total = 0
+    for char in text:
+        if char.isspace():
+            continue
+        total += 1
+        code = ord(char)
+        if (
+            0x4E00 <= code <= 0x9FFF      # CJK Unified Ideographs
+            or 0x3040 <= code <= 0x309F   # Hiragana
+            or 0x30A0 <= code <= 0x30FF   # Katakana
+            or 0xAC00 <= code <= 0xD7AF   # Hangul
+            or 0x3400 <= code <= 0x4DBF   # CJK Extension A
+        ):
+            cjk_count += 1
+
+    if total == 0:
+        return False
+    return (cjk_count / total) >= threshold
+
+
 def _calculate_readability(text: str) -> dict:
     """
-    Calculate readability metrics using textstat.
-    Returns dict with various readability scores.
+    Calculate readability metrics using textstat (English) or a
+    character-based fallback (CJK).
     """
+    empty_result = {
+        "available": False,
+        "language": None,
+        "flesch_reading_ease": None,
+        "flesch_kincaid_grade": None,
+        "gunning_fog": None,
+        "smog_index": None,
+        "automated_readability_index": None,
+        "coleman_liau_index": None,
+        "avg_sentence_length": None,
+        "avg_syllables_per_word": None,
+        "difficult_words_percent": None,
+        "reading_level": None,
+        "reading_time_minutes": None,
+    }
+
     if not TEXTSTAT_AVAILABLE or not text or len(text) < 100:
+        return empty_result
+
+    # CJK content: skip textstat (it produces garbage scores on Chinese/Japanese/Korean)
+    if _is_cjk_dominant(text):
+        char_count = sum(1 for c in text if not c.isspace())
+        # Chinese reading speed ~ 400 chars/minute (vs 200 wpm English)
+        reading_time = char_count / 400 if char_count > 0 else 0
         return {
-            "available": False,
-            "flesch_reading_ease": None,
-            "flesch_kincaid_grade": None,
-            "gunning_fog": None,
-            "smog_index": None,
-            "automated_readability_index": None,
-            "coleman_liau_index": None,
-            "avg_sentence_length": None,
-            "avg_syllables_per_word": None,
-            "difficult_words_percent": None,
-            "reading_level": None,
-            "reading_time_minutes": None,
+            **empty_result,
+            "available": True,
+            "language": "cjk",
+            "reading_level": "not_applicable_cjk",
+            "reading_time_minutes": round(reading_time, 1),
         }
 
     try:
@@ -328,6 +375,7 @@ def _calculate_readability(text: str) -> dict:
 
         return {
             "available": True,
+            "language": "en",
             "flesch_reading_ease": round(flesch, 1),
             "flesch_kincaid_grade": round(fk_grade, 1),
             "gunning_fog": round(gunning, 1),
@@ -343,6 +391,7 @@ def _calculate_readability(text: str) -> dict:
     except Exception:
         return {
             "available": False,
+            "language": None,
             "flesch_reading_ease": None,
             "flesch_kincaid_grade": None,
             "gunning_fog": None,
