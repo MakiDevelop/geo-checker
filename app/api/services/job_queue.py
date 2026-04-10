@@ -10,6 +10,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from src.config.settings import settings
+from src.db.store import get_conn, init_db, save_scan, upsert_url
 from src.fetcher.ghost_fetcher import is_ghost_url
 from src.fetcher.html_fetcher import fetch_html
 from src.geo.geo_checker import check_geo
@@ -89,10 +90,21 @@ class JobQueue:
             # Store result
             job.result = {
                 "geo": geo,
+                "draft_mode": draft_mode,
                 "stats": parsed.get("stats", {}),
                 "readability": parsed.get("readability", {}),
                 "schema_org": parsed.get("schema_org", {}),
+                "parsed_snapshot": parsed,
             }
+
+            conn = get_conn()
+            try:
+                init_db(conn)  # idempotent
+                url_id = upsert_url(conn, analysis_url)
+                save_scan(conn, url_id, job.result)
+            finally:
+                conn.close()
+
             job.status = "completed"
 
         except ValueError as e:
