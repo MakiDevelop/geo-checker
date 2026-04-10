@@ -496,7 +496,8 @@ def _detect_qa_structure(headings: list[dict], paragraphs: list[str]) -> dict:
 
 def _assess_link_quality(parsed: dict) -> dict:
     """Assess internal and external link quality."""
-    links = parsed.get("content", {}).get("links", [])
+    links_data = parsed.get("links", {})
+    links = list(links_data.get("internal", [])) + list(links_data.get("external", []))
     if not links:
         return {
             "total_links": 0,

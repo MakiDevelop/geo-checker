@@ -163,6 +163,62 @@ class TestLinkExtraction:
         assert len(external) > 0
 
 
+class TestParserCheckerContract:
+    """Contract tests for parser → checker data shape.
+
+    Regression guard for the 2026-04 silent failure where _assess_link_quality
+    read parsed["content"]["links"] (which never existed) instead of the real
+    top-level parsed["links"] dict, causing the Quality dimension to lose 2
+    points on every analysis.
+    """
+
+    def test_links_at_top_level(self, valid_html: str, mock_url: str):
+        """parse_content() must put links at top level, not nested under content."""
+        from src.parser.content_parser import parse_content
+        result = parse_content(valid_html, mock_url)
+        assert "links" in result, "links must be a top-level key"
+        assert "links" not in result.get("content", {}), \
+            "links must NOT be nested under content (would re-introduce the 2026-04 drift bug)"
+
+    def test_links_shape_is_dict_with_internal_external(
+        self, valid_html: str, mock_url: str
+    ):
+        """parsed['links'] must be a dict with 'internal' and 'external' lists."""
+        from src.parser.content_parser import parse_content
+        result = parse_content(valid_html, mock_url)
+        links = result["links"]
+        assert isinstance(links, dict), "parsed['links'] must be a dict, not a list"
+        assert "internal" in links and "external" in links
+        assert isinstance(links["internal"], list)
+        assert isinstance(links["external"], list)
+
+    def test_each_link_has_href_and_text(
+        self, valid_html: str, mock_url: str
+    ):
+        """Each link entry must be a dict with at least 'href' and 'text' keys."""
+        from src.parser.content_parser import parse_content
+        result = parse_content(valid_html, mock_url)
+        all_links = result["links"]["internal"] + result["links"]["external"]
+        assert len(all_links) > 0, "fixture should produce at least one link"
+        for link in all_links:
+            assert "href" in link and "text" in link
+
+    def test_link_quality_consumes_parser_output(
+        self, valid_html: str, mock_url: str
+    ):
+        """End-to-end: _assess_link_quality must see real links from parser.
+
+        This is the regression guard. Before the fix, total_links was always 0
+        because the consumer read the wrong path.
+        """
+        from src.geo.geo_checker import _assess_link_quality
+        from src.parser.content_parser import parse_content
+        parsed = parse_content(valid_html, mock_url)
+        link_quality = _assess_link_quality(parsed)
+        assert link_quality["total_links"] > 0, \
+            "link_quality must see links from parser; total_links == 0 means contract drift"
+
+
 class TestSchemaOrgExtraction:
     """Tests for Schema.org extraction."""
 
@@ -171,4 +227,8 @@ class TestSchemaOrgExtraction:
         from src.parser.content_parser import parse_content
         result = parse_content(minimal_html, mock_url)
         schema = result.get("schema_org", {})
-        assert schema.get("available") is False or "types_found" not in schema or len(schema.get("types_found", [])) == 0
+        assert (
+            schema.get("available") is False
+            or "types_found" not in schema
+            or len(schema.get("types_found", [])) == 0
+        )
