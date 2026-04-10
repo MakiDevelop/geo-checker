@@ -11,6 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.v1.router import router as api_router
 from app.routes.analysis import router as analysis_router
 from src.config.settings import settings
+from src.scheduler.rescan_scheduler import start_scheduler, stop_scheduler
 
 # Rate limiting configuration (for web UI)
 RATE_LIMIT_REQUESTS = settings.security.rate_limit_requests
@@ -163,7 +164,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.api.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["X-API-Key", "X-Perplexity-Key", "Authorization", "Content-Type"],
 )
 
@@ -184,3 +185,13 @@ app.include_router(analysis_router)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    stop_scheduler()

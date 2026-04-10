@@ -206,6 +206,50 @@
             </div>
           </div>
 
+          <!-- Monitoring (Schedule + Webhook) -->
+          <div class="section" id="monitoring-section" data-url="{{ result.url|default('') }}">
+            <h2>
+              Monitoring
+              <span class="info-tip" data-tip="自動排程重新掃描，分數變化時發 webhook 通知">?</span>
+            </h2>
+            <p class="section-desc">
+              Schedule automatic rescans and get notified when your GEO score drops.
+            </p>
+
+            <div class="monitoring-form">
+              <div class="form-row">
+                <label for="rescan-cron-select">Rescan Schedule</label>
+                <select id="rescan-cron-select">
+                  <option value="">Disabled</option>
+                  <option value="hourly">Hourly</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <label for="webhook-url-input">
+                  Webhook URL
+                  <span class="form-hint">(POST JSON on alert — use Zapier/n8n to route to Slack/Telegram/LINE)</span>
+                </label>
+                <input type="url" id="webhook-url-input" placeholder="https://hooks.example.com/..." />
+              </div>
+
+              <div class="form-row">
+                <label for="alert-threshold-input">
+                  Alert Threshold
+                  <span class="form-hint">(trigger webhook when score drops below this)</span>
+                </label>
+                <input type="number" id="alert-threshold-input" min="0" max="100" placeholder="0 = disabled" />
+              </div>
+
+              <div class="form-actions">
+                <button type="button" id="monitoring-save-btn" class="btn-primary">Save</button>
+                <span class="monitoring-status" id="monitoring-status"></span>
+              </div>
+            </div>
+          </div>
+
           <!-- Priority Fixes -->
           {% if summary and summary.issues %}
           <div class="section">
@@ -976,5 +1020,6 @@
     <script src="/static/js/score-animation.js"></script>
     <script src="/static/js/trend-chart.js"></script>
     <script src="/static/js/live-probe.js"></script>
+    <script src="/static/js/monitoring.js"></script>
   </body>
 </html>

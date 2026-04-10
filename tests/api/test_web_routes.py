@@ -184,7 +184,9 @@ def test_results_page_renders_trend_and_fix_snippets(
     assert 'id="trend-chart"' in response.text
     assert "Score Trend" in response.text
     assert "Live AI Probe" in response.text
+    assert "Monitoring" in response.text
     assert "/static/js/live-probe.js" in response.text
+    assert "/static/js/monitoring.js" in response.text
     assert "Fix Snippets" in response.text
     assert "Allow blocked AI crawlers in robots.txt" in response.text
     assert "Add Schema.org JSON-LD" in response.text

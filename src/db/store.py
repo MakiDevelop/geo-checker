@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,13 @@ _SCHEMA_STATEMENTS = (
     "CREATE INDEX IF NOT EXISTS idx_crawler_scan_id ON scan_crawler_status(scan_id)",
 )
 
+_MIGRATIONS = (
+    "ALTER TABLE urls ADD COLUMN webhook_url TEXT DEFAULT ''",
+    "ALTER TABLE urls ADD COLUMN alert_threshold INTEGER DEFAULT 0",
+    "ALTER TABLE urls ADD COLUMN last_scanned_at TEXT DEFAULT ''",
+    "ALTER TABLE urls ADD COLUMN last_alert_at TEXT DEFAULT ''",
+)
+
 _ISSUE_MESSAGES = {
     "crawlers_blocked": "AI crawlers are blocked by robots.txt",
     "noindex_set": "Page has noindex directive - AI cannot index",
@@ -116,6 +124,11 @@ def init_db(conn: sqlite3.Connection) -> None:
     """Create all SQLite tables and indexes if they do not exist."""
     for statement in _SCHEMA_STATEMENTS:
         conn.execute(statement)
+    for migration in _MIGRATIONS:
+        try:
+            conn.execute(migration)
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
 
 
@@ -132,8 +145,14 @@ def upsert_url(
         INSERT INTO urls (url, label, rescan_cron)
         VALUES (?, ?, ?)
         ON CONFLICT(url) DO UPDATE SET
-            label = excluded.label,
-            rescan_cron = excluded.rescan_cron,
+            label = CASE
+                WHEN excluded.label <> '' THEN excluded.label
+                ELSE urls.label
+            END,
+            rescan_cron = CASE
+                WHEN excluded.rescan_cron <> '' THEN excluded.rescan_cron
+                ELSE urls.rescan_cron
+            END,
             updated_at = (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
         """,
         (url, label, rescan_cron),
@@ -237,6 +256,167 @@ def save_scan(conn: sqlite3.Connection, url_id: int, geo_result: dict) -> int:
 
     conn.commit()
     return scan_id
+
+
+def update_url_monitoring(
+    conn: sqlite3.Connection,
+    url: str,
+    *,
+    rescan_cron: str | None = None,
+    webhook_url: str | None = None,
+    alert_threshold: int | None = None,
+) -> bool:
+    """Update monitoring settings for a tracked URL."""
+    updates: list[str] = []
+    values: list[Any] = []
+
+    if rescan_cron is not None:
+        updates.append("rescan_cron = ?")
+        values.append(rescan_cron)
+    if webhook_url is not None:
+        updates.append("webhook_url = ?")
+        values.append(webhook_url)
+    if alert_threshold is not None:
+        updates.append("alert_threshold = ?")
+        values.append(int(alert_threshold))
+
+    if not updates:
+        row = conn.execute("SELECT 1 FROM urls WHERE url = ?", (url,)).fetchone()
+        return row is not None
+
+    updates.append("updated_at = (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))")
+    values.append(url)
+    cursor = conn.execute(
+        f"UPDATE urls SET {', '.join(updates)} WHERE url = ?",
+        values,
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def get_url_monitoring(conn: sqlite3.Connection, url: str) -> dict | None:
+    """Return monitoring configuration for a tracked URL."""
+    row = conn.execute(
+        """
+        SELECT rescan_cron, webhook_url, alert_threshold, last_scanned_at, last_alert_at
+        FROM urls
+        WHERE url = ?
+        """,
+        (url,),
+    ).fetchone()
+    if row is None:
+        return None
+
+    return {
+        "rescan_cron": str(row["rescan_cron"] or ""),
+        "webhook_url": str(row["webhook_url"] or ""),
+        "alert_threshold": int(row["alert_threshold"] or 0),
+        "last_scanned_at": str(row["last_scanned_at"] or ""),
+        "last_alert_at": str(row["last_alert_at"] or ""),
+    }
+
+
+def mark_scan_completed(conn: sqlite3.Connection, url_id: int, scanned_at: str) -> None:
+    """Update last_scanned_at after a successful scheduler scan."""
+    conn.execute(
+        """
+        UPDATE urls
+        SET
+            last_scanned_at = ?,
+            updated_at = (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        WHERE id = ?
+        """,
+        (scanned_at, url_id),
+    )
+    conn.commit()
+
+
+def mark_alert_sent(conn: sqlite3.Connection, url_id: int, alerted_at: str) -> None:
+    """Update last_alert_at after a successful webhook delivery."""
+    conn.execute(
+        """
+        UPDATE urls
+        SET
+            last_alert_at = ?,
+            updated_at = (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        WHERE id = ?
+        """,
+        (alerted_at, url_id),
+    )
+    conn.commit()
+
+
+def get_due_rescans(conn: sqlite3.Connection) -> list[dict]:
+    """Return tracked URLs whose simplified rescan interval is due."""
+    intervals = {
+        "hourly": 3600,
+        "daily": 86400,
+        "weekly": 604800,
+    }
+    now = datetime.now(UTC)
+    rows = conn.execute(
+        """
+        SELECT
+            id AS url_id,
+            url,
+            rescan_cron,
+            webhook_url,
+            alert_threshold,
+            last_scanned_at
+        FROM urls
+        WHERE rescan_cron IN ('hourly', 'daily', 'weekly')
+        ORDER BY id ASC
+        """
+    ).fetchall()
+
+    due_items: list[dict] = []
+    for row in rows:
+        cron = str(row["rescan_cron"] or "")
+        interval_seconds = intervals.get(cron)
+        if interval_seconds is None:
+            continue
+
+        last_scanned_at = str(row["last_scanned_at"] or "")
+        if not last_scanned_at:
+            due_items.append(
+                {
+                    "url_id": int(row["url_id"]),
+                    "url": str(row["url"]),
+                    "rescan_cron": cron,
+                    "webhook_url": str(row["webhook_url"] or ""),
+                    "alert_threshold": int(row["alert_threshold"] or 0),
+                    "last_scanned_at": "",
+                }
+            )
+            continue
+
+        parsed = _parse_iso8601(last_scanned_at)
+        if parsed is None:
+            due_items.append(
+                {
+                    "url_id": int(row["url_id"]),
+                    "url": str(row["url"]),
+                    "rescan_cron": cron,
+                    "webhook_url": str(row["webhook_url"] or ""),
+                    "alert_threshold": int(row["alert_threshold"] or 0),
+                    "last_scanned_at": last_scanned_at,
+                }
+            )
+            continue
+
+        if (now - parsed).total_seconds() >= interval_seconds:
+            due_items.append(
+                {
+                    "url_id": int(row["url_id"]),
+                    "url": str(row["url"]),
+                    "rescan_cron": cron,
+                    "webhook_url": str(row["webhook_url"] or ""),
+                    "alert_threshold": int(row["alert_threshold"] or 0),
+                    "last_scanned_at": last_scanned_at,
+                }
+            )
+
+    return due_items
 
 
 def get_url_history(conn: sqlite3.Connection, url: str, *, limit: int = 20) -> list[dict]:
@@ -448,3 +628,14 @@ def _loads_json(raw: Any) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return loaded if isinstance(loaded, dict) else {}
+
+
+def _parse_iso8601(value: str) -> datetime | None:
+    normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed

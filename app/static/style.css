@@ -920,6 +920,63 @@ details[open] summary {
   cursor: not-allowed;
 }
 
+/* === Monitoring === */
+.monitoring-form {
+  margin-top: 16px;
+}
+
+.monitoring-form .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.monitoring-form .form-row label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.monitoring-form .form-hint {
+  font-size: 11px;
+  color: var(--muted-light);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.monitoring-form input[type="url"],
+.monitoring-form input[type="number"],
+.monitoring-form select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: inherit;
+}
+
+.monitoring-form .form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.monitoring-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.monitoring-status.success {
+  color: var(--success);
+}
+
+.monitoring-status.error {
+  color: var(--danger);
+}
+
 .search-btn svg {
   width: 26px;
   height: 26px;
