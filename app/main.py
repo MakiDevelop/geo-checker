@@ -164,7 +164,7 @@ app.add_middleware(
     allow_origins=settings.api.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["X-API-Key", "Authorization", "Content-Type"],
+    allow_headers=["X-API-Key", "X-Perplexity-Key", "Authorization", "Content-Type"],
 )
 
 # Add middlewares (order matters: outermost first)

@@ -155,6 +155,57 @@
           </div>
           {% endif %}
 
+          <!-- Live AI Probe (BYOK) -->
+          <div class="section" id="live-probe-section" data-result-id="{{ result_id }}">
+            <h2>
+              Live AI Probe
+              <span class="premium-badge">BYOK</span>
+            </h2>
+            <p class="section-desc">
+              Ask real AI search engines if your URL gets cited. Bring your own API key —
+              it's stored only in your browser.
+            </p>
+
+            <div class="probe-config">
+              <div class="probe-config-row">
+                <label for="pplx-key-input">
+                  Perplexity API Key
+                  <a href="https://www.perplexity.ai/settings/api" target="_blank" rel="noopener noreferrer">(get one →)</a>
+                </label>
+                <div class="probe-key-input-wrapper">
+                  <input type="password" id="pplx-key-input" placeholder="pplx-..." autocomplete="off" />
+                  <button type="button" id="probe-save-key" class="btn-secondary">Save</button>
+                  <button type="button" id="probe-clear-key" class="btn-ghost" hidden>Clear</button>
+                </div>
+                <div class="probe-key-status" id="probe-key-status"></div>
+              </div>
+            </div>
+
+            <div class="probe-action">
+              <button type="button" id="probe-run-btn" class="btn-primary" disabled>
+                Run Probe (3 queries)
+              </button>
+              <span class="probe-cost-note">Costs ~$0.015 on your Perplexity account</span>
+            </div>
+
+            <div class="probe-loading" id="probe-loading" hidden>
+              <div class="spinner"></div>
+              <span>Asking Perplexity... (this may take 10-30 seconds)</span>
+            </div>
+
+            <div class="probe-error" id="probe-error" hidden></div>
+
+            <div class="probe-results" id="probe-results" hidden>
+              <div class="probe-summary">
+                <div class="probe-stat">
+                  <div class="probe-stat-value" id="probe-citation-rate">0/0</div>
+                  <div class="probe-stat-label">Cited in Perplexity</div>
+                </div>
+              </div>
+              <div class="probe-queries" id="probe-queries"></div>
+            </div>
+          </div>
+
           <!-- Priority Fixes -->
           {% if summary and summary.issues %}
           <div class="section">
@@ -924,5 +975,6 @@
     </script>
     <script src="/static/js/score-animation.js"></script>
     <script src="/static/js/trend-chart.js"></script>
+    <script src="/static/js/live-probe.js"></script>
   </body>
 </html>

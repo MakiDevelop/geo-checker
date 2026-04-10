@@ -2950,3 +2950,225 @@ details[open] summary {
     font-size: 13px;
   }
 }
+
+/* === Live AI Probe === */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #fff;
+}
+
+.btn-secondary,
+.btn-ghost {
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover,
+.btn-ghost:hover {
+  box-shadow: none;
+}
+
+.premium-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-radius: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.probe-config {
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--panel-alt);
+  border-radius: 8px;
+}
+
+.probe-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.probe-config-row label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.probe-config-row label a {
+  font-weight: 400;
+  color: var(--primary);
+  text-decoration: none;
+  margin-left: 6px;
+}
+
+.probe-key-input-wrapper {
+  display: flex;
+  gap: 8px;
+}
+
+.probe-key-input-wrapper input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.probe-key-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.probe-key-status.configured {
+  color: var(--success);
+}
+
+.probe-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.probe-cost-note {
+  font-size: 12px;
+  color: var(--muted-light);
+}
+
+.probe-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.probe-results {
+  margin-top: 20px;
+}
+
+.probe-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.probe-stat {
+  padding: 12px 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.probe-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.probe-stat-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.probe-query {
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.probe-cited {
+  background: var(--success-bg);
+  border-color: var(--success);
+}
+
+.probe-not-cited {
+  background: var(--panel-alt);
+}
+
+.probe-query-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.probe-query-text {
+  font-weight: 500;
+}
+
+.probe-snippet {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-left: 3px solid var(--success);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.probe-answer {
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.probe-citations {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.probe-citations ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.probe-error {
+  padding: 12px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .probe-key-input-wrapper,
+  .probe-action {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
