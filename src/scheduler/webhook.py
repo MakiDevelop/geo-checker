@@ -1,12 +1,23 @@
 """Webhook delivery for scan alerts."""
 from __future__ import annotations
 
+import json
+import sys
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.exceptions import HTTPError
+from urllib3.util import Timeout
 
+from src.config.settings import settings
 from src.db.store import get_conn, init_db, mark_alert_sent
+from src.security.url_guard import (
+    UnsafeWebhookTarget,
+    WebhookValidationError,
+    resolve_webhook_target,
+)
 
 WEBHOOK_TIMEOUT_SECONDS = 10
 ALERT_DEBOUNCE_HOURS = 24
@@ -110,16 +121,94 @@ def _is_debounced(url_id: int) -> bool:
 
 def _send_webhook(webhook_url: str, payload: dict[str, Any]) -> bool:
     """Send the webhook request. Failures are returned as False, not raised."""
+    guard_mode = settings.security.webhook_guard_mode
+    if guard_mode == "off":
+        return _send_webhook_unpinned(webhook_url, payload)
+
+    try:
+        target = resolve_webhook_target(webhook_url)
+    except UnsafeWebhookTarget as exc:
+        if guard_mode != "report_only":
+            return False
+        _log_guard_event(f"report_only delivered blocked webhook target {webhook_url}: {exc}")
+        try:
+            target = resolve_webhook_target(webhook_url, allow_unsafe_network=True)
+        except WebhookValidationError:
+            return False
+    except WebhookValidationError:
+        return False
+
+    return _send_pinned_webhook(target, payload)
+
+
+def _send_webhook_unpinned(webhook_url: str, payload: dict[str, Any]) -> bool:
     try:
         response = requests.post(
             webhook_url,
             json=payload,
             timeout=WEBHOOK_TIMEOUT_SECONDS,
+            allow_redirects=False,
             headers={"User-Agent": "GEO-Checker/4.0 (+https://gc.ranran.tw)"},
         )
     except requests.RequestException:
         return False
     return 200 <= response.status_code < 300
+
+
+def _send_pinned_webhook(target, payload: dict[str, Any]) -> bool:
+    headers = {
+        "User-Agent": "GEO-Checker/4.0 (+https://gc.ranran.tw)",
+        "Content-Type": "application/json",
+        "Host": target.host_header,
+    }
+    if target.authorization_header:
+        headers["Authorization"] = target.authorization_header
+
+    body = json.dumps(payload).encode("utf-8")
+    timeout = Timeout(total=WEBHOOK_TIMEOUT_SECONDS)
+
+    if target.scheme == "https":
+        pool = HTTPSConnectionPool(
+            host=target.pinned_ip,
+            port=target.port,
+            timeout=timeout,
+            maxsize=1,
+            retries=False,
+            assert_hostname=target.hostname,
+            server_hostname=target.hostname,
+            cert_reqs="CERT_REQUIRED",
+            ca_certs=requests.certs.where(),
+        )
+    else:
+        pool = HTTPConnectionPool(
+            host=target.pinned_ip,
+            port=target.port,
+            timeout=timeout,
+            maxsize=1,
+            retries=False,
+        )
+
+    try:
+        response = pool.urlopen(
+            "POST",
+            target.path_and_query,
+            body=body,
+            headers=headers,
+            redirect=False,
+            preload_content=False,
+        )
+        status = response.status
+        response.drain_conn()
+        response.release_conn()
+        return 200 <= status < 300
+    except (HTTPError, OSError):
+        return False
+    finally:
+        pool.close()
+
+
+def _log_guard_event(message: str) -> None:
+    print(f"[webhook-guard] {message}", file=sys.stderr)
 
 
 def _mark_alert_sent(url_id: int) -> None:

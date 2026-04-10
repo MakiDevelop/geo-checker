@@ -1,9 +1,51 @@
 """Shared test fixtures and configuration."""
 from __future__ import annotations
 
+# ruff: noqa: E501  -- HTML fixtures below intentionally exceed line length
+import sys
+import types
 from pathlib import Path
 
 import pytest
+
+if "cachetools" not in sys.modules:
+    cachetools = types.ModuleType("cachetools")
+
+    class TTLCache(dict):
+        def __init__(self, *args, **kwargs):
+            super().__init__()
+
+    cachetools.TTLCache = TTLCache
+    sys.modules["cachetools"] = cachetools
+
+if "readability" not in sys.modules:
+    readability = types.ModuleType("readability")
+
+    class Document:
+        def __init__(self, html: str):
+            self.html = html
+
+        def summary(self, html_partial: bool = True) -> str:
+            return self.html
+
+    readability.Document = Document
+    sys.modules["readability"] = readability
+
+if "playwright.sync_api" not in sys.modules:
+    playwright = types.ModuleType("playwright")
+    sync_api = types.ModuleType("playwright.sync_api")
+
+    class PlaywrightTimeoutError(Exception):
+        pass
+
+    def sync_playwright():
+        raise RuntimeError("playwright is not available in test environment")
+
+    sync_api.TimeoutError = PlaywrightTimeoutError
+    sync_api.sync_playwright = sync_playwright
+    playwright.sync_api = sync_api
+    sys.modules["playwright"] = playwright
+    sys.modules["playwright.sync_api"] = sync_api
 
 
 @pytest.fixture

@@ -10,6 +10,7 @@ from src.db.store import (
     get_url_history,
     init_db,
     save_scan,
+    update_url_monitoring_with_audit,
     upsert_url,
 )
 
@@ -105,5 +106,46 @@ def test_store_persists_history_and_diff(tmp_path) -> None:
     ]
     assert any(issue["category"] == "no_author" for issue in diff["new_issues"])
     assert any(issue["category"] == "crawlers_blocked" for issue in diff["resolved_issues"])
+
+    conn.close()
+
+
+def test_update_url_monitoring_with_audit_persists_actor_and_webhook_diff(tmp_path) -> None:
+    db_path = tmp_path / "geo_checker.db"
+    conn = get_conn(db_path)
+    init_db(conn)
+
+    upsert_url(conn, "https://example.com/article")
+    updated = update_url_monitoring_with_audit(
+        conn,
+        "https://example.com/article",
+        webhook_url="https://hooks.example.com/updated",
+        actor_key_name="CLIENT_A",
+        actor_tier="premium",
+        client_ip="203.0.113.10",
+        action="update_monitoring",
+        reason="manual update",
+    )
+
+    audit_row = conn.execute(
+        """
+        SELECT
+            actor_key_name, actor_tier, client_ip, action,
+            old_webhook_url, new_webhook_url, reason
+        FROM monitoring_audit_log
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+    ).fetchone()
+
+    assert updated is True
+    assert audit_row is not None
+    assert audit_row["actor_key_name"] == "CLIENT_A"
+    assert audit_row["actor_tier"] == "premium"
+    assert audit_row["client_ip"] == "203.0.113.10"
+    assert audit_row["action"] == "update_monitoring"
+    assert audit_row["old_webhook_url"] == ""
+    assert audit_row["new_webhook_url"] == "https://hooks.example.com/updated"
+    assert audit_row["reason"] == "manual update"
 
     conn.close()

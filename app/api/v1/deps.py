@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 
 from cachetools import TTLCache
-from fastapi import Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from app.api.models.errors import ErrorCodes
 from app.api.services.auth import api_key_manager
@@ -127,6 +127,27 @@ async def validate_api_key(
         )
 
     return api_key
+
+
+async def require_api_key(
+    api_key: str | None = Depends(get_optional_api_key),
+) -> str | None:
+    """Require a valid API key unless the monitoring auth gate is disabled."""
+    if not settings.security.monitoring_require_api_key:
+        return await validate_api_key(api_key)
+
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": {
+                    "code": ErrorCodes.INVALID_API_KEY,
+                    "message": "Authentication required.",
+                }
+            },
+        )
+
+    return await validate_api_key(api_key)
 
 
 async def check_rate_limit(

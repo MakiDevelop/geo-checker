@@ -21,14 +21,47 @@
     }
   }
 
+  function setControlsVisible(visible) {
+    var ids = [
+      'rescan-cron-select',
+      'webhook-url-input',
+      'alert-threshold-input',
+      'monitoring-save-btn'
+    ];
+
+    ids.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+
+      el.disabled = !visible;
+      el.hidden = !visible;
+
+      var row = el.closest('.form-row');
+      if (row) row.hidden = !visible;
+    });
+  }
+
+  function setAuthRequired() {
+    var statusEl = document.getElementById('monitoring-status');
+    setControlsVisible(false);
+    if (!statusEl) return;
+    statusEl.textContent = 'Authentication required';
+    statusEl.className = 'monitoring-status error';
+  }
+
   async function loadConfig(url) {
     try {
       var encoded = encodeURIComponent(url);
       var response = await fetch('/api/v1/monitoring/' + encoded);
+      if (response.status === 401) {
+        setAuthRequired();
+        return;
+      }
       if (!response.ok) return;
 
       var data = await response.json();
       var config = data.config || {};
+      setControlsVisible(true);
       document.getElementById('rescan-cron-select').value = config.rescan_cron || '';
       document.getElementById('webhook-url-input').value = config.webhook_url || '';
       document.getElementById('alert-threshold-input').value = config.alert_threshold || 0;
@@ -71,6 +104,10 @@
 
       if (!response.ok) {
         var data = await response.json();
+        if (response.status === 401) {
+          setAuthRequired();
+          return;
+        }
         var msg = (
           data.detail &&
           data.detail.error &&
@@ -85,7 +122,9 @@
       statusEl.textContent = '⚠️ ' + ((error && error.message) || 'Save failed');
       statusEl.className = 'monitoring-status error';
     } finally {
-      saveBtn.disabled = false;
+      if (!saveBtn.hidden) {
+        saveBtn.disabled = false;
+      }
     }
   }
 

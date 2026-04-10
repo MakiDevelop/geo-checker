@@ -92,6 +92,10 @@ class SecuritySettings:
     csrf_token_expiry: int = 3600  # 1 hour
     rate_limit_requests: int = 10
     rate_limit_window: int = 60  # seconds
+    monitoring_require_api_key: bool = True
+    webhook_guard_mode: str = "strict"
+    webhook_host_allowlist: list[str] = field(default_factory=list)
+    webhook_cidr_allowlist: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -163,6 +167,26 @@ class Settings:
         # Rate limiting overrides
         if rate_limit := os.environ.get("GEO_CHECKER_RATE_LIMIT"):
             self.security.rate_limit_requests = int(rate_limit)
+        if monitoring_require_api_key := os.environ.get("GEO_CHECKER_MONITORING_REQUIRE_API_KEY"):
+            self.security.monitoring_require_api_key = (
+                monitoring_require_api_key.strip().lower() in ("1", "true", "yes", "on")
+            )
+        if webhook_guard_mode := os.environ.get("GEO_CHECKER_WEBHOOK_GUARD_MODE"):
+            normalized_mode = webhook_guard_mode.strip().lower()
+            if normalized_mode in {"strict", "report_only", "off"}:
+                self.security.webhook_guard_mode = normalized_mode
+        if webhook_host_allowlist := os.environ.get("GEO_CHECKER_WEBHOOK_HOST_ALLOWLIST"):
+            self.security.webhook_host_allowlist = [
+                host.strip().lower()
+                for host in webhook_host_allowlist.split(",")
+                if host.strip()
+            ]
+        if webhook_cidr_allowlist := os.environ.get("GEO_CHECKER_WEBHOOK_CIDR_ALLOWLIST"):
+            self.security.webhook_cidr_allowlist = [
+                cidr.strip()
+                for cidr in webhook_cidr_allowlist.split(",")
+                if cidr.strip()
+            ]
 
         # API overrides
         if api_anon_limit := os.environ.get("GEO_API_ANONYMOUS_RATE_LIMIT"):

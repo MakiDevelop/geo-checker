@@ -21,6 +21,29 @@ _SCHEMA_STATEMENTS = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS monitoring_audit_log (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        url_id              INTEGER NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
+        url                 TEXT NOT NULL,
+        actor_key_name      TEXT NOT NULL DEFAULT '',
+        actor_tier          TEXT NOT NULL DEFAULT '',
+        client_ip           TEXT NOT NULL DEFAULT '',
+        action              TEXT NOT NULL,
+        old_webhook_url     TEXT NOT NULL DEFAULT '',
+        new_webhook_url     TEXT NOT NULL DEFAULT '',
+        created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        reason              TEXT NOT NULL DEFAULT ''
+    )
+    """,
+    (
+        "CREATE INDEX IF NOT EXISTS idx_monitoring_audit_url_id "
+        "ON monitoring_audit_log(url_id)"
+    ),
+    (
+        "CREATE INDEX IF NOT EXISTS idx_monitoring_audit_created_at "
+        "ON monitoring_audit_log(created_at)"
+    ),
+    """
     CREATE TABLE IF NOT EXISTS scans (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         url_id          INTEGER NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
@@ -258,15 +281,71 @@ def save_scan(conn: sqlite3.Connection, url_id: int, geo_result: dict) -> int:
     return scan_id
 
 
-def update_url_monitoring(
+def _utc_now() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _insert_monitoring_audit_row(
+    conn: sqlite3.Connection,
+    *,
+    url_id: int,
+    url: str,
+    actor_key_name: str,
+    actor_tier: str,
+    client_ip: str,
+    action: str,
+    old_webhook_url: str,
+    new_webhook_url: str,
+    created_at: str,
+    reason: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO monitoring_audit_log (
+            url_id,
+            url,
+            actor_key_name,
+            actor_tier,
+            client_ip,
+            action,
+            old_webhook_url,
+            new_webhook_url,
+            created_at,
+            reason
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            url_id,
+            url,
+            actor_key_name,
+            actor_tier,
+            client_ip,
+            action,
+            old_webhook_url,
+            new_webhook_url,
+            created_at,
+            reason,
+        ),
+    )
+
+
+def _update_url_monitoring_transaction(
     conn: sqlite3.Connection,
     url: str,
     *,
     rescan_cron: str | None = None,
     webhook_url: str | None = None,
     alert_threshold: int | None = None,
+    audit_entry: dict[str, str] | None = None,
 ) -> bool:
-    """Update monitoring settings for a tracked URL."""
+    row = conn.execute(
+        "SELECT id, url, webhook_url FROM urls WHERE url = ?",
+        (url,),
+    ).fetchone()
+    if row is None:
+        return False
+
     updates: list[str] = []
     values: list[Any] = []
 
@@ -280,18 +359,128 @@ def update_url_monitoring(
         updates.append("alert_threshold = ?")
         values.append(int(alert_threshold))
 
-    if not updates:
-        row = conn.execute("SELECT 1 FROM urls WHERE url = ?", (url,)).fetchone()
-        return row is not None
+    if not updates and audit_entry is None:
+        return True
 
-    updates.append("updated_at = (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))")
-    values.append(url)
-    cursor = conn.execute(
-        f"UPDATE urls SET {', '.join(updates)} WHERE url = ?",
-        values,
+    url_id = int(row["id"])
+    current_timestamp = _utc_now()
+    old_webhook_url = str(row["webhook_url"] or "")
+    new_webhook_url = old_webhook_url if webhook_url is None else webhook_url
+
+    with conn:
+        if updates:
+            updates.append("updated_at = ?")
+            values.append(current_timestamp)
+            values.append(url)
+            cursor = conn.execute(
+                f"UPDATE urls SET {', '.join(updates)} WHERE url = ?",
+                values,
+            )
+            updated = cursor.rowcount > 0
+        else:
+            updated = True
+
+        if audit_entry is not None:
+            _insert_monitoring_audit_row(
+                conn,
+                url_id=url_id,
+                url=str(row["url"]),
+                actor_key_name=audit_entry.get("actor_key_name", ""),
+                actor_tier=audit_entry.get("actor_tier", ""),
+                client_ip=audit_entry.get("client_ip", ""),
+                action=audit_entry.get("action", "update_monitoring"),
+                old_webhook_url=old_webhook_url,
+                new_webhook_url=new_webhook_url,
+                created_at=current_timestamp,
+                reason=audit_entry.get("reason", ""),
+            )
+
+    return updated
+
+
+def update_url_monitoring(
+    conn: sqlite3.Connection,
+    url: str,
+    *,
+    rescan_cron: str | None = None,
+    webhook_url: str | None = None,
+    alert_threshold: int | None = None,
+) -> bool:
+    """Update monitoring settings for a tracked URL."""
+    return _update_url_monitoring_transaction(
+        conn,
+        url,
+        rescan_cron=rescan_cron,
+        webhook_url=webhook_url,
+        alert_threshold=alert_threshold,
     )
-    conn.commit()
-    return cursor.rowcount > 0
+
+
+def update_url_monitoring_with_audit(
+    conn: sqlite3.Connection,
+    url: str,
+    *,
+    rescan_cron: str | None = None,
+    webhook_url: str | None = None,
+    alert_threshold: int | None = None,
+    actor_key_name: str = "",
+    actor_tier: str = "",
+    client_ip: str = "",
+    action: str = "update_monitoring",
+    reason: str = "",
+) -> bool:
+    """Update monitoring settings and persist an audit row in one transaction."""
+    return _update_url_monitoring_transaction(
+        conn,
+        url,
+        rescan_cron=rescan_cron,
+        webhook_url=webhook_url,
+        alert_threshold=alert_threshold,
+        audit_entry={
+            "actor_key_name": actor_key_name,
+            "actor_tier": actor_tier,
+            "client_ip": client_ip,
+            "action": action,
+            "reason": reason,
+        },
+    )
+
+
+def log_monitoring_audit_event(
+    conn: sqlite3.Connection,
+    *,
+    url: str,
+    actor_key_name: str = "",
+    actor_tier: str = "",
+    client_ip: str = "",
+    action: str,
+    old_webhook_url: str = "",
+    new_webhook_url: str = "",
+    reason: str = "",
+) -> bool:
+    """Persist a monitoring audit row without modifying the URL configuration."""
+    row = conn.execute(
+        "SELECT id, url FROM urls WHERE url = ?",
+        (url,),
+    ).fetchone()
+    if row is None:
+        return False
+
+    with conn:
+        _insert_monitoring_audit_row(
+            conn,
+            url_id=int(row["id"]),
+            url=str(row["url"]),
+            actor_key_name=actor_key_name,
+            actor_tier=actor_tier,
+            client_ip=client_ip,
+            action=action,
+            old_webhook_url=old_webhook_url,
+            new_webhook_url=new_webhook_url,
+            created_at=_utc_now(),
+            reason=reason,
+        )
+    return True
 
 
 def get_url_monitoring(conn: sqlite3.Connection, url: str) -> dict | None:

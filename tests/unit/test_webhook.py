@@ -1,14 +1,17 @@
 """Tests for webhook alert evaluation and delivery."""
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
-import requests
+from urllib3.exceptions import HTTPError
 
 import src.scheduler.webhook as webhook
+from src.config.settings import settings
 from src.db.store import get_conn, init_db, mark_alert_sent, upsert_url
+from src.security.url_guard import ResolvedWebhookTarget, WebhookValidationError
 
 
 def _seed_url_with_alert(db_path, *, last_alert_at: str = "") -> int:
@@ -123,15 +126,42 @@ def test_debounce_after_window(tmp_path, monkeypatch: pytest.MonkeyPatch) -> Non
 def test_send_webhook_mock(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict = {}
 
+    target = ResolvedWebhookTarget(
+        original_url="https://hooks.example.com/test",
+        scheme="https",
+        hostname="hooks.example.com",
+        host_header="hooks.example.com",
+        port=443,
+        path_and_query="/test",
+        resolved_ips=("8.8.8.8",),
+        pinned_ip="8.8.8.8",
+    )
+
     class Response:
-        status_code = 204
+        status = 204
 
-    def fake_post(url, **kwargs):
-        captured["url"] = url
-        captured["kwargs"] = kwargs
-        return Response()
+        def drain_conn(self):
+            return None
 
-    monkeypatch.setattr(webhook.requests, "post", fake_post)
+        def release_conn(self):
+            return None
+
+    class FakePool:
+        def __init__(self, **kwargs):
+            captured["pool_init"] = kwargs
+
+        def urlopen(self, method, url, **kwargs):
+            captured["method"] = method
+            captured["url"] = url
+            captured["kwargs"] = kwargs
+            return Response()
+
+        def close(self):
+            captured["closed"] = True
+
+    monkeypatch.setattr(settings.security, "webhook_guard_mode", "strict")
+    monkeypatch.setattr(webhook, "resolve_webhook_target", lambda *_args, **_kwargs: target)
+    monkeypatch.setattr(webhook, "HTTPSConnectionPool", FakePool)
 
     sent = webhook._send_webhook(
         "https://hooks.example.com/test",
@@ -139,15 +169,89 @@ def test_send_webhook_mock(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert sent is True
-    assert captured["url"] == "https://hooks.example.com/test"
-    assert captured["kwargs"]["json"]["event"] == "geo_checker_alert"
-    assert captured["kwargs"]["timeout"] == webhook.WEBHOOK_TIMEOUT_SECONDS
+    assert captured["method"] == "POST"
+    assert captured["url"] == "/test"
+    assert json.loads(captured["kwargs"]["body"].decode("utf-8"))["event"] == "geo_checker_alert"
+    assert captured["kwargs"]["redirect"] is False
+    assert captured["kwargs"]["headers"]["Host"] == "hooks.example.com"
+    assert captured["pool_init"]["host"] == "8.8.8.8"
+    assert captured["pool_init"]["server_hostname"] == "hooks.example.com"
+    assert captured["closed"] is True
+
+
+def test_send_webhook_redirect_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    target = ResolvedWebhookTarget(
+        original_url="https://hooks.example.com/test",
+        scheme="https",
+        hostname="hooks.example.com",
+        host_header="hooks.example.com",
+        port=443,
+        path_and_query="/test",
+        resolved_ips=("8.8.8.8",),
+        pinned_ip="8.8.8.8",
+    )
+
+    class Response:
+        status = 302
+
+        def drain_conn(self):
+            return None
+
+        def release_conn(self):
+            return None
+
+    class FakePool:
+        def __init__(self, **kwargs):
+            pass
+
+        def urlopen(self, method, url, **kwargs):
+            return Response()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(settings.security, "webhook_guard_mode", "strict")
+    monkeypatch.setattr(webhook, "resolve_webhook_target", lambda *_args, **_kwargs: target)
+    monkeypatch.setattr(webhook, "HTTPSConnectionPool", FakePool)
+
+    assert webhook._send_webhook("https://hooks.example.com/test", {"event": "x"}) is False
 
 
 def test_send_webhook_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fail_post(*args, **kwargs):
-        raise requests.RequestException("network error")
+    target = ResolvedWebhookTarget(
+        original_url="https://hooks.example.com/test",
+        scheme="https",
+        hostname="hooks.example.com",
+        host_header="hooks.example.com",
+        port=443,
+        path_and_query="/test",
+        resolved_ips=("8.8.8.8",),
+        pinned_ip="8.8.8.8",
+    )
 
-    monkeypatch.setattr(webhook.requests, "post", fail_post)
+    class FakePool:
+        def __init__(self, **kwargs):
+            pass
+
+        def urlopen(self, method, url, **kwargs):
+            raise HTTPError("network error")
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(settings.security, "webhook_guard_mode", "strict")
+    monkeypatch.setattr(webhook, "resolve_webhook_target", lambda *_args, **_kwargs: target)
+    monkeypatch.setattr(webhook, "HTTPSConnectionPool", FakePool)
+
+    assert webhook._send_webhook("https://hooks.example.com/test", {"event": "x"}) is False
+
+
+def test_send_webhook_invalid_target_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings.security, "webhook_guard_mode", "strict")
+    monkeypatch.setattr(
+        webhook,
+        "resolve_webhook_target",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(WebhookValidationError("blocked")),
+    )
 
     assert webhook._send_webhook("https://hooks.example.com/test", {"event": "x"}) is False

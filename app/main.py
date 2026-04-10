@@ -1,4 +1,5 @@
 """FastAPI entry point."""
+import sys
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -12,11 +13,95 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.v1.router import router as api_router
 from app.routes.analysis import router as analysis_router
 from src.config.settings import settings
+from src.db.store import (
+    get_conn,
+    init_db,
+    log_monitoring_audit_event,
+    update_url_monitoring_with_audit,
+)
 from src.scheduler.rescan_scheduler import start_scheduler, stop_scheduler
+from src.security.url_guard import validate_webhook_url
+
+
+def sanitize_existing_webhooks() -> int:
+    """Remove or report invalid stored webhook URLs before the scheduler starts."""
+    guard_mode = settings.security.webhook_guard_mode
+    if guard_mode == "off":
+        return 0
+
+    conn = get_conn()
+    try:
+        init_db(conn)
+        rows = conn.execute(
+            """
+            SELECT url, webhook_url
+            FROM urls
+            WHERE webhook_url IS NOT NULL AND webhook_url <> ''
+            ORDER BY id ASC
+            """,
+        ).fetchall()
+
+        sanitized = 0
+        for row in rows:
+            url = str(row["url"])
+            webhook_url = str(row["webhook_url"] or "")
+            try:
+                is_valid, reason = validate_webhook_url(webhook_url)
+                if is_valid:
+                    continue
+
+                print(
+                    f"[webhook-guard] startup detected invalid stored webhook for {url}: {reason}",
+                    file=sys.stderr,
+                )
+
+                if guard_mode == "report_only":
+                    log_monitoring_audit_event(
+                        conn,
+                        url=url,
+                        actor_key_name="system/backfill",
+                        actor_tier="system/backfill",
+                        action="sanitize_invalid_webhook",
+                        old_webhook_url=webhook_url,
+                        new_webhook_url=webhook_url,
+                        reason=f"report_only: {reason}",
+                    )
+                    continue
+
+                updated = update_url_monitoring_with_audit(
+                    conn,
+                    url,
+                    webhook_url="",
+                    actor_key_name="system/backfill",
+                    actor_tier="system/backfill",
+                    action="sanitize_invalid_webhook",
+                    reason=reason,
+                )
+                if updated:
+                    sanitized += 1
+            except Exception as exc:
+                # Never let one bad row block app startup. Log and move on so the
+                # remaining rows still get sanitized; the bad row keeps its old
+                # state until a later request touches it explicitly.
+                print(
+                    f"[webhook-guard] startup sanitize error for {url}: {exc!r}",
+                    file=sys.stderr,
+                )
+                continue
+
+        return sanitized
+    finally:
+        conn.close()
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    conn = get_conn()
+    try:
+        init_db(conn)
+    finally:
+        conn.close()
+    sanitize_existing_webhooks()
     start_scheduler()
     yield
     stop_scheduler()
@@ -194,5 +279,4 @@ app.include_router(analysis_router)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
 
