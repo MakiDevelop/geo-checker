@@ -14,6 +14,15 @@ RUN apt-get update \
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt \
     && pip install --no-cache-dir --upgrade certifi
+
+# Replace certifi's bundled CA with the Debian system bundle. Modern
+# Cloudflare-fronted sites (incl. example.com) chain through SSL.com /
+# Comodo / Sectigo roots that the upstream certifi bundle no longer
+# carries, so requests.get() fails with CERTIFICATE_VERIFY_FAILED unless
+# we let it use the same trust anchors as the OS.
+RUN cp /etc/ssl/certs/ca-certificates.crt \
+    /usr/local/lib/python3.11/site-packages/certifi/cacert.pem
+
 RUN python -m playwright install --with-deps chromium
 RUN python -m spacy download en_core_web_sm
 
