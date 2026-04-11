@@ -28,6 +28,11 @@ RUN python -m spacy download en_core_web_sm
 
 COPY . /app
 
+# Register the package metadata so importlib.metadata.version("geo-checker")
+# can read the pyproject.toml version at runtime. Without this, the editable
+# install step is missing and /api/v1/health would report "0.0.0-unknown".
+RUN pip install --no-cache-dir --no-deps -e .
+
 # Single worker: job queue is in-memory (process-local), multiple workers cause
 # job lookups to fail when request hits a different process. Use 1 worker until
 # job persistence (Redis/SQLite) is implemented.
