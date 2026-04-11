@@ -110,8 +110,12 @@ class APISettings:
     job_max_workers: int = 3
     job_retention_hours: int = 24  # Clean up old jobs after this
 
-    # CORS
-    cors_origins: list[str] = field(default_factory=lambda: ["*"])
+    # CORS. Default is a closed allowlist: no cross-origin access.
+    # `allow_credentials=True` combined with `allow_origins=["*"]` is
+    # forbidden by the browser CORS spec, so we default credentials off
+    # and let operators opt-in for a specific allowlist via env vars.
+    cors_origins: list[str] = field(default_factory=list)
+    cors_allow_credentials: bool = False
 
 
 @dataclass
@@ -196,7 +200,15 @@ class Settings:
         if job_workers := os.environ.get("GEO_API_JOB_WORKERS"):
             self.api.job_max_workers = int(job_workers)
         if cors := os.environ.get("GEO_API_CORS_ORIGINS"):
-            self.api.cors_origins = [o.strip() for o in cors.split(",")]
+            self.api.cors_origins = [
+                origin.strip()
+                for origin in cors.split(",")
+                if origin.strip()
+            ]
+        if cors_creds := os.environ.get("GEO_API_CORS_ALLOW_CREDENTIALS"):
+            self.api.cors_allow_credentials = (
+                cors_creds.strip().lower() in ("1", "true", "yes", "on")
+            )
 
         # AI Simulator
         if ai_key := os.environ.get("GEO_AI_API_KEY"):

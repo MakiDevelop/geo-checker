@@ -140,6 +140,8 @@ def get_conn(db_path: Path | str | None = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys = ON")
+    # Wait up to 5s for a locked write (scheduler + API writers can overlap).
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 

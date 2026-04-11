@@ -1,4 +1,4 @@
-"""GEO rule checks (v3.0.0) - Enhanced with 14 AI crawlers, new GEO signals, citation simulator."""
+"""GEO rule checks (v4.0.1) - Enhanced with 14 AI crawlers, new GEO signals, citation simulator."""
 from __future__ import annotations
 
 import re
@@ -1383,7 +1383,7 @@ def check_geo(
     draft_mode: bool = False,
     fetch_result: FetchResult | None = None,
 ) -> dict:
-    """Run v3.0.0 GEO checks with weighted scoring and extended metrics.
+    """Run v4.0.1 GEO checks with weighted scoring and extended metrics.
 
     Args:
         draft_mode: When True, skip accessibility checks (robots.txt, noindex).

@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter
 
+from app import __version__ as VERSION
 from app.api.models.responses import HealthResponse
+from src.config.settings import settings
 
 router = APIRouter(tags=["Health"])
-
-VERSION = "4.0.0"
 
 
 @router.get(
@@ -54,6 +54,11 @@ async def health_check() -> HealthResponse:
     from app.api.services.job_queue import job_queue
 
     checks["job_queue"] = job_queue is not None
+
+    # Security posture surfaced in /health so operators can see from the
+    # outside whether guard rails are enforcing. False = fail-open state.
+    checks["webhook_guard_strict"] = settings.security.webhook_guard_mode == "strict"
+    checks["monitoring_require_api_key"] = settings.security.monitoring_require_api_key
 
     return HealthResponse(
         status=overall_status,

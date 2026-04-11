@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app import __version__
 from app.api.v1.router import router as api_router
 from app.routes.analysis import router as analysis_router
 from src.config.settings import settings
@@ -94,6 +95,44 @@ def sanitize_existing_webhooks() -> int:
         conn.close()
 
 
+def _emit_security_posture_banner() -> None:
+    """Log a WARNING banner when any fail-open security flag is set.
+
+    Operators can intentionally run with `webhook_guard_mode != "strict"`
+    or `monitoring_require_api_key = False` for debug / report-only
+    scenarios, but a silent default makes it easy to forget to re-enable
+    protection. This banner prints once at startup so misconfigurations
+    show up in container logs and health checks.
+    """
+    posture_warnings: list[str] = []
+
+    guard_mode = settings.security.webhook_guard_mode
+    if guard_mode != "strict":
+        posture_warnings.append(
+            f"webhook_guard_mode={guard_mode!r} (not 'strict') — "
+            "SSRF guard is degraded; blocked webhooks may be delivered "
+            "(report_only) or bypassed entirely (off). Set "
+            "GEO_CHECKER_WEBHOOK_GUARD_MODE=strict to re-enable."
+        )
+
+    if not settings.security.monitoring_require_api_key:
+        posture_warnings.append(
+            "monitoring_require_api_key=False — /api/v1/monitoring/* "
+            "endpoints are callable without an API key. Set "
+            "GEO_CHECKER_MONITORING_REQUIRE_API_KEY=1 to re-enable auth."
+        )
+
+    if not posture_warnings:
+        return
+
+    bar = "=" * 72
+    print(bar, file=sys.stderr)
+    print("[security] WARNING: fail-open security posture detected", file=sys.stderr)
+    for line in posture_warnings:
+        print(f"  - {line}", file=sys.stderr)
+    print(bar, file=sys.stderr)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     conn = get_conn()
@@ -101,6 +140,7 @@ async def lifespan(_app: FastAPI):
         init_db(conn)
     finally:
         conn.close()
+    _emit_security_posture_banner()
     sanitize_existing_webhooks()
     start_scheduler()
     yield
@@ -223,7 +263,7 @@ class APIRateLimitHeadersMiddleware(BaseHTTPMiddleware):
 app = FastAPI(
     lifespan=lifespan,
     title="GEO Checker API",
-    version="4.0.0",
+    version=__version__,
     # Public-facing instance: disable Swagger / ReDoc / OpenAPI schema to
     # remove the enumeration surface. Re-enable behind auth (or only in
     # debug builds) when there is a real consumer that needs the spec.
@@ -232,11 +272,12 @@ app = FastAPI(
     openapi_url=None,
 )
 
-# CORS middleware (for API cross-origin requests)
+# CORS middleware. Default is closed (cors_origins=[] + credentials=False);
+# operators must opt-in via GEO_API_CORS_ORIGINS + GEO_API_CORS_ALLOW_CREDENTIALS.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.api.cors_origins,
-    allow_credentials=True,
+    allow_credentials=settings.api.cors_allow_credentials,
     allow_methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["X-API-Key", "X-Perplexity-Key", "Authorization", "Content-Type"],
 )
