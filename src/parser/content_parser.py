@@ -197,7 +197,7 @@ def _is_definition_paragraph(text: str) -> bool:
     if " 是 " in text or " 為 " in text:
         return True
 
-    # English patterns
+    # English patterns (case-insensitive)
     english_patterns = [
         r"\bis\s+defined\s+as\b",
         r"\brefers\s+to\b",
@@ -208,11 +208,20 @@ def _is_definition_paragraph(text: str) -> bool:
         r"\bcan\s+be\s+described\s+as\b",
         r"\bis\s+the\s+process\s+of\b",
         r"\bis\s+when\b",
-        r":\s*[A-Z]",  # Colon followed by capital letter (definition style)
     ]
     for pattern in english_patterns:
         if re.search(pattern, text, re.IGNORECASE):
             return True
+
+    # "X means Y" where Y is a proper noun / Title-Cased term (the term
+    # being defined). Case-sensitive to avoid matching "she means well".
+    if re.search(r"\bmeans\s+[A-Z]", text):
+        return True
+
+    # Colon followed by capital letter, definition style. Case-sensitive
+    # to avoid matching "file:///etc/passwd"-style false positives.
+    if re.search(r":\s*[A-Z]", text):
+        return True
 
     # Japanese patterns
     japanese_patterns = ["とは", "である", "を意味する", "と定義される", "のことを指す"]
