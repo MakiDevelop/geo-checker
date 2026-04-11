@@ -8,17 +8,24 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from app.api.models.errors import ErrorCodes, ErrorResponse
 from app.api.models.responses import (
     AICrawlerAccess,
+    CitationCoverage,
     CitationPotential,
+    CitationSimulation,
     ContentDepth,
+    CrawlerStatus,
+    EEATAssessment,
     ExtendedMetrics,
     FirstParagraph,
+    FreshnessAssessment,
     GeoAnalysisResult,
     GeoScore,
     GeoScoreBreakdown,
+    ImageQualityAssessment,
     Issue,
     IssuesSummary,
     JobResponse,
     LinkQuality,
+    LlmsTxtAssessment,
     MetaRobots,
     PriorityFix,
     PronounClarity,
@@ -51,9 +58,21 @@ def _convert_geo_result(geo: dict) -> GeoAnalysisResult:
         grade=gs.get("grade", "F"),
         grade_label=gs.get("grade_label", "unknown"),
         breakdown=GeoScoreBreakdown(
-            accessibility=ScoreBreakdownItem(**breakdown.get("accessibility", {"score": 0, "max": 40, "percentage": 0})),
-            structure=ScoreBreakdownItem(**breakdown.get("structure", {"score": 0, "max": 30, "percentage": 0})),
-            quality=ScoreBreakdownItem(**breakdown.get("quality", {"score": 0, "max": 30, "percentage": 0})),
+            accessibility=ScoreBreakdownItem(
+                **breakdown.get(
+                    "accessibility", {"score": 0, "max": 40, "percentage": 0}
+                )
+            ),
+            structure=ScoreBreakdownItem(
+                **breakdown.get(
+                    "structure", {"score": 0, "max": 30, "percentage": 0}
+                )
+            ),
+            quality=ScoreBreakdownItem(
+                **breakdown.get(
+                    "quality", {"score": 0, "max": 30, "percentage": 0}
+                )
+            ),
         ),
     )
 
@@ -76,8 +95,19 @@ def _convert_geo_result(geo: dict) -> GeoAnalysisResult:
     aca = geo.get("ai_crawler_access", {})
     meta_robots = aca.get("meta_robots", {})
     x_robots = aca.get("x_robots_tag", {})
+    crawlers_raw = aca.get("crawlers", {}) or {}
+    crawlers = {
+        name: CrawlerStatus(
+            status=info.get("status", "unspecified"),
+            display=info.get("display", name),
+            vendor=info.get("vendor", ""),
+            purpose=info.get("purpose", ""),
+        )
+        for name, info in crawlers_raw.items()
+    }
     ai_crawler_access = AICrawlerAccess(
         robots_txt_found=aca.get("robots_txt_found", False),
+        crawlers=crawlers,
         gptbot=aca.get("gptbot", "unspecified"),
         claudebot=aca.get("claudebot", "unspecified"),
         perplexitybot=aca.get("perplexitybot", "unspecified"),
@@ -103,6 +133,42 @@ def _convert_geo_result(geo: dict) -> GeoAnalysisResult:
     fp = em.get("first_paragraph", {})
     pc = em.get("pronoun_clarity", {})
     cp = em.get("citation_potential", {})
+    freshness_raw = em.get("freshness")
+    freshness = (
+        FreshnessAssessment(**freshness_raw)
+        if isinstance(freshness_raw, dict)
+        else None
+    )
+    eeat_raw = em.get("eeat")
+    eeat = EEATAssessment(**eeat_raw) if isinstance(eeat_raw, dict) else None
+    image_quality_raw = em.get("image_quality")
+    image_quality = (
+        ImageQualityAssessment(**image_quality_raw)
+        if isinstance(image_quality_raw, dict)
+        else None
+    )
+    llms_txt_raw = em.get("llms_txt")
+    llms_txt = (
+        LlmsTxtAssessment(**llms_txt_raw)
+        if isinstance(llms_txt_raw, dict)
+        else None
+    )
+    cs_raw = em.get("citation_simulation")
+    citation_simulation: CitationSimulation | None = None
+    if isinstance(cs_raw, dict):
+        coverage_raw = cs_raw.get("coverage")
+        coverage = (
+            CitationCoverage(**coverage_raw)
+            if isinstance(coverage_raw, dict)
+            else None
+        )
+        citation_simulation = CitationSimulation(
+            mode=cs_raw.get("mode", "rule_based"),
+            mock_query=cs_raw.get("mock_query", ""),
+            cited_snippets=list(cs_raw.get("cited_snippets", []) or []),
+            citation_preview=cs_raw.get("citation_preview", ""),
+            coverage=coverage,
+        )
 
     extended_metrics = ExtendedMetrics(
         qa_structure=QAStructure(
@@ -140,6 +206,11 @@ def _convert_geo_result(geo: dict) -> GeoAnalysisResult:
             level=cp.get("level", "minimal"),
             signals=cp.get("signals", []),
         ),
+        freshness=freshness,
+        eeat=eeat,
+        image_quality=image_quality,
+        llms_txt=llms_txt,
+        citation_simulation=citation_simulation,
     )
 
     return GeoAnalysisResult(
