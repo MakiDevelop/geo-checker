@@ -6,9 +6,9 @@ IP, and connects directly to that IP with TLS SNI/Host header set to the
 original hostname. DNS rebinding between validate-time and connect-time is
 therefore impossible — the server cannot swap IPs under us.
 
-The Playwright JS render path (`render_js_content`) is NOT yet pinned and is
-still subject to Chromium's own DNS resolution. Treat the analyse output of
-JS-heavy targets as best-effort until that path is hardened separately.
+The Playwright JS render path (`render_js_content`) is also protected: it
+resolves + pins via `url_guard.resolve_webhook_target` before launching
+Chromium and passes the pinned IP into Chromium via `--host-resolver-rules`.
 """
 from __future__ import annotations
 
@@ -231,6 +231,8 @@ def fetch_html(source: str) -> FetchResult:
     if _needs_js_render(html, content_type):
         try:
             html = render_js_content(fetched.final_url)
+        except (WebhookValidationError, UnsafeWebhookTarget) as exc:
+            raise ValueError(f"SSRF protection (js render): {exc}") from exc
         except RuntimeError as exc:
             raise RuntimeError("Unable to render JS page within timeout") from exc
 
