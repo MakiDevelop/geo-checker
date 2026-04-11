@@ -38,6 +38,14 @@ CLAUDE-*.md
 # Local DB
 .agentic-memory.db
 data/*.db
+# SQLite WAL sidecar files (ephemeral, regenerated at runtime)
+data/*.db-shm
+data/*.db-wal
+
+# Local scratch / AI tool files (not committed)
+GEMINI.md
+docs/suggestions/CODEX-*.md
+docs/suggestions/GEMINI-*.md
 
 # Claude Code project config
 CLAUDE.md
