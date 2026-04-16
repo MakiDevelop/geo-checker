@@ -7,11 +7,12 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from pydantic import BaseModel, Field
 
 from app.api.models.errors import ErrorCodes, ErrorResponse
 from app.api.services.job_queue import job_queue
+from app.api.v1.deps import check_rate_limit, get_optional_api_key, validate_api_key
 from src.ai.live_probe import generate_probe_queries, probe_perplexity
 
 router = APIRouter(tags=["Probe"])
@@ -19,11 +20,23 @@ router = APIRouter(tags=["Probe"])
 RESULTS_DIR = Path("data/results")
 HEX_ID_PATTERN = re.compile(r"^[a-f0-9]{32}$")
 
+# Probe is an expensive operation (one upstream Perplexity call per query).
+# Cap both the number of queries and each query's length to prevent abuse.
+MAX_PROBE_QUERIES = 10
+MAX_PROBE_QUERY_LENGTH = 500
+
 
 class ProbeRequest(BaseModel):
     job_id: str | None = None
     result_id: str | None = None
-    queries: list[str] | None = None
+    queries: list[str] | None = Field(
+        default=None,
+        max_length=MAX_PROBE_QUERIES,
+        description=(
+            f"Optional custom queries. Maximum {MAX_PROBE_QUERIES} queries, "
+            f"each up to {MAX_PROBE_QUERY_LENGTH} characters."
+        ),
+    )
 
 
 @router.post(
@@ -40,6 +53,7 @@ async def run_probe(
     request: Request,
     payload: ProbeRequest,
     x_perplexity_key: str = Header(..., alias="X-Perplexity-Key"),
+    api_key: str | None = Depends(get_optional_api_key),
 ) -> dict[str, Any]:
     """
     執行 Live AI Probe。
@@ -50,7 +64,11 @@ async def run_probe(
     - X-Perplexity-Key 僅用於呼叫 Perplexity API
     - 禁止 logging / 禁止寫 DB / 禁止寫檔 / 禁止 echo 回 response
     """
-    del request
+    # Validate the optional app API key (if provided) and enforce rate limit.
+    # The probe endpoint is especially expensive (one upstream call per query)
+    # and must not allow unlimited requests even with a valid Perplexity key.
+    validated_key = await validate_api_key(api_key)
+    await check_rate_limit(request, validated_key)
 
     if not x_perplexity_key.startswith("pplx-"):
         raise _http_error(
@@ -58,6 +76,16 @@ async def run_probe(
             ErrorCodes.INVALID_KEY_FORMAT,
             "Perplexity API key must start with pplx-",
         )
+
+    # Cap per-query length (list length already capped by ProbeRequest validator)
+    if payload.queries:
+        for q in payload.queries:
+            if len(q) > MAX_PROBE_QUERY_LENGTH:
+                raise _http_error(
+                    status.HTTP_400_BAD_REQUEST,
+                    ErrorCodes.INVALID_REQUEST,
+                    f"Each query must be at most {MAX_PROBE_QUERY_LENGTH} characters",
+                )
 
     has_job_id = bool(payload.job_id)
     has_result_id = bool(payload.result_id)

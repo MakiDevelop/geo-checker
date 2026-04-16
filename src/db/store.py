@@ -348,6 +348,13 @@ def _update_url_monitoring_transaction(
     if row is None:
         return False
 
+    # Allowlist of columns that may appear in the dynamic UPDATE.
+    # Defense-in-depth: prevents a future edit from accidentally introducing
+    # user-controlled column names into the f-string below.
+    _ALLOWED_UPDATE_COLUMNS = frozenset(
+        {"rescan_cron", "webhook_url", "alert_threshold", "updated_at"}
+    )
+
     updates: list[str] = []
     values: list[Any] = []
 
@@ -374,6 +381,12 @@ def _update_url_monitoring_transaction(
             updates.append("updated_at = ?")
             values.append(current_timestamp)
             values.append(url)
+            # Verify every fragment references an allowlisted column before
+            # interpolating into SQL. Each fragment must be "<col> = ?".
+            for fragment in updates:
+                col = fragment.split(" = ", 1)[0]
+                if col not in _ALLOWED_UPDATE_COLUMNS:
+                    raise ValueError(f"Refusing to UPDATE unknown column: {col!r}")
             cursor = conn.execute(
                 f"UPDATE urls SET {', '.join(updates)} WHERE url = ?",
                 values,

@@ -65,11 +65,11 @@ class JobQueue:
 
     def _run_analysis(self, job_id: str) -> None:
         """Run the analysis (executed in thread pool)."""
-        job = self.jobs.get(job_id)
-        if not job:
-            return
-
-        job.status = "processing"
+        with self._lock:
+            job = self.jobs.get(job_id)
+            if not job:
+                return
+            job.status = "processing"
 
         try:
             # Fetch HTML (returns FetchResult with headers + robots.txt)
@@ -87,8 +87,9 @@ class JobQueue:
                 draft_mode=draft_mode, fetch_result=fetch_result,
             )
 
-            # Store result
-            job.result = {
+            # Build result before transitioning to "completed" so callers
+            # never observe status=completed with result=None.
+            result_payload = {
                 "geo": geo,
                 "draft_mode": draft_mode,
                 "stats": parsed.get("stats", {}),
@@ -101,27 +102,34 @@ class JobQueue:
             try:
                 init_db(conn)  # idempotent
                 url_id = upsert_url(conn, analysis_url)
-                save_scan(conn, url_id, job.result)
+                save_scan(conn, url_id, result_payload)
             finally:
                 conn.close()
 
-            job.status = "completed"
+            # Atomic transition: result + status together under the lock
+            with self._lock:
+                job.result = result_payload
+                job.status = "completed"
 
         except ValueError as e:
-            job.error = str(e)
-            job.status = "failed"
+            with self._lock:
+                job.error = str(e)
+                job.status = "failed"
 
         except Exception as e:
             from src.fetcher.ghost_fetcher import GhostAPIError
-            if isinstance(e, GhostAPIError):
-                job.error = f"Ghost API: {str(e)}"
+            error_msg = (
+                f"Ghost API: {str(e)}"
+                if isinstance(e, GhostAPIError)
+                else f"Analysis failed: {type(e).__name__}: {str(e)}"
+            )
+            with self._lock:
+                job.error = error_msg
                 job.status = "failed"
-                return
-            job.error = f"Analysis failed: {type(e).__name__}: {str(e)}"
-            job.status = "failed"
 
         finally:
-            job.completed_at = datetime.now(UTC)
+            with self._lock:
+                job.completed_at = datetime.now(UTC)
 
     def _maybe_cleanup(self) -> None:
         """Clean up old jobs if needed (called with lock held)."""

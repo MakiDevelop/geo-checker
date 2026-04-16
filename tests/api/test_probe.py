@@ -53,6 +53,20 @@ from app.main import app
 from src.ai.live_probe import ProbeQuery, ProbeResult
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Reset the API rate limiter before and after each test.
+
+    Probe endpoint is now rate-limited (to prevent abuse as a paid-API proxy),
+    so shared-state accumulation across tests would cause 429s.
+    """
+    from app.api.v1.deps import api_rate_limiter
+
+    api_rate_limiter._requests.clear()
+    yield
+    api_rate_limiter._requests.clear()
+
+
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
