@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     analyze,
+    brand_audit,
     compare,
     health,
     jobs,
@@ -16,6 +17,7 @@ from app.api.v1.endpoints import (
 router = APIRouter()
 
 router.include_router(analyze.router)
+router.include_router(brand_audit.router)
 router.include_router(compare.router)
 router.include_router(jobs.router)
 router.include_router(health.router)

@@ -25,6 +25,7 @@ GEO Checker tells you exactly what to fix.
 - **AI Citation Simulator** — Preview how AI engines would summarize and cite your content
 - **GEO Score Card** — Shareable visual score card (1200x630 OG image)
 - **Compare Mode** — Side-by-side analysis of multiple pages
+- **Brand Visibility Audit** — CJK-first prompt pack, competitor mention-rate analysis, and Markdown action report for AI answer engines
 - **Action Toolkit** — Fix checklist, robots.txt generator, Schema.org generator
 - **Multilingual** — Full English and Traditional Chinese support
 
@@ -35,7 +36,16 @@ GEO Checker tells you exactly what to fix.
 - **Live AI Probe (BYOK)** — Actually ask Perplexity whether your URL gets cited. Bring your own API key — stored only in your browser
 - **Scheduled Rescan** — Hourly / daily / weekly auto rescans (opt-in via `GEO_CHECKER_ENABLE_SCHEDULER=1`)
 - **Webhook Alerts** — Generic HTTP POST when grade drops or score falls below threshold. Route to Slack / Telegram / LINE via n8n / Zapier
-- **Monitoring API** — `GET/PUT /api/v1/monitoring`, `GET /api/v1/trends/{url}`, `GET /api/v1/trends/diff`, `GET /api/v1/fixes/{job_id}`, `POST /api/v1/probe`
+- **Monitoring API** — `GET/PUT /api/v1/monitoring`, `GET /api/v1/trends/{url}`, `GET /api/v1/trends/diff`, `GET /api/v1/fixes/{job_id}`, `POST /api/v1/probe`, `POST /api/v1/brand-audit`
+
+### Brand Visibility Audit
+
+`POST /api/v1/brand-audit` turns the CJK GEO/AIO opportunity into a repeatable audit workflow:
+
+- Generate Taiwan/Japan/global prompt packs for ChatGPT, Perplexity, Gemini, and Google AI Mode
+- Paste answer-engine outputs back into the request to measure target and competitor mention rates
+- Receive prioritized fixes for entity clarity, localized comparison content, structured data, llms.txt, and third-party proof
+- Export a copy-ready Markdown report for client review or internal planning
 
 ![Analysis Result](docs/screenshot-result.png)
 

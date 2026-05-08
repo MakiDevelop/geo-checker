@@ -62,6 +62,42 @@ class PriorityFix(BaseModel):
     impact: Literal["high", "medium", "low"]
 
 
+class BrandAuditVisibility(BaseModel):
+    """Brand visibility metrics from pasted answer-engine outputs."""
+
+    name: str
+    is_target: bool
+    mention_count: int = Field(..., ge=0)
+    answer_count: int = Field(..., ge=0)
+    mention_rate: float = Field(..., ge=0, le=1)
+    average_position: float | None = None
+
+
+class BrandAuditFix(BaseModel):
+    """Recommended action for brand visibility improvement."""
+
+    priority: Literal["critical", "recommended", "suggested"]
+    action: str
+    impact: str
+
+
+class BrandAuditResponse(BaseModel):
+    """Brand visibility audit response."""
+
+    audit_id: str
+    created_at: datetime
+    brand_name: str
+    website_url: str
+    region: str
+    language: str
+    category: str
+    use_case: str
+    prompts: list[str]
+    visibility: list[BrandAuditVisibility]
+    top_fixes: list[BrandAuditFix]
+    markdown_report: str
+
+
 class Summary(BaseModel):
     """Analysis summary with issues and recommendations."""
 
