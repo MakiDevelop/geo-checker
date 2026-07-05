@@ -567,48 +567,47 @@ def download_input(request: Request, result_id: str) -> Response:
 def robots_txt() -> Response:
     content = """# GEO Checker — AI-optimized robots.txt
 # https://gc.ranran.tw
+#
+# Strategy: Allow search/retrieval + user-triggered fetchers for visibility.
+# Training crawlers allowed (this is our own tool site).
 
-# AI Search Crawlers
-User-agent: GPTBot
-Allow: /
-
+# === Search/Retrieval ===
 User-agent: OAI-SearchBot
 Allow: /
 
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: anthropic-ai
+User-agent: Claude-SearchBot
 Allow: /
 
 User-agent: PerplexityBot
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: Meta-WebIndexer
+Allow: /
+
+# === User-Triggered ===
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: MistralAI-User
+Allow: /
+
+# === Training (allowed for this site) ===
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
 Allow: /
 
 User-agent: Google-Extended
 Allow: /
 
 User-agent: Applebot-Extended
-Allow: /
-
-User-agent: Meta-ExternalAgent
-Allow: /
-
-User-agent: Amazonbot
-Allow: /
-
-User-agent: YouBot
-Allow: /
-
-User-agent: CCBot
-Allow: /
-
-User-agent: PhindBot
-Allow: /
-
-User-agent: cohere-ai
-Allow: /
-
-User-agent: Bytespider
 Allow: /
 
 User-agent: *

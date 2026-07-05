@@ -1,27 +1,64 @@
-"""robots.txt Generator — generate AI-friendly robots.txt from analysis."""
+"""robots.txt Generator — three-category AI crawler management (2026 edition).
+
+Categories:
+- Training: crawlers that collect data for model training (opt-out recommended)
+- Search/Retrieval: crawlers that index for AI search answers (allow for visibility)
+- User-triggered: fetchers activated by user queries (allow for citation traffic)
+"""
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 
-# All known AI crawlers with recommended rules
-_AI_CRAWLERS = [
-    # Core search crawlers (should Allow for visibility)
-    {"ua": "GPTBot", "purpose": "ChatGPT Search", "recommend": "Allow"},
-    {"ua": "OAI-SearchBot", "purpose": "SearchGPT", "recommend": "Allow"},
-    {"ua": "ClaudeBot", "purpose": "Claude Search", "recommend": "Allow"},
-    {"ua": "PerplexityBot", "purpose": "Perplexity", "recommend": "Allow"},
-    {"ua": "Google-Extended", "purpose": "Gemini/AI Overviews", "recommend": "Allow"},
-    {"ua": "Applebot-Extended", "purpose": "Apple Intelligence", "recommend": "Allow"},
-    # Extended crawlers
-    {"ua": "Amazonbot", "purpose": "Alexa/Rufus", "recommend": "Allow"},
-    {"ua": "YouBot", "purpose": "You.com", "recommend": "Allow"},
-    {"ua": "PhindBot", "purpose": "Phind", "recommend": "Allow"},
-    {"ua": "Meta-ExternalAgent", "purpose": "Meta AI", "recommend": "Allow"},
-    # Training-only crawlers (user may want to Disallow)
-    {"ua": "CCBot", "purpose": "Common Crawl (training)", "recommend": "Allow"},
-    {"ua": "anthropic-ai", "purpose": "Anthropic (training)", "recommend": "Allow"},
-    {"ua": "cohere-ai", "purpose": "Cohere (training)", "recommend": "Allow"},
-    {"ua": "Bytespider", "purpose": "ByteDance (training)", "recommend": "Allow"},
+_TRAINING_CRAWLERS = [
+    {"ua": "GPTBot", "vendor": "OpenAI", "note": "Model training data"},
+    {"ua": "ClaudeBot", "vendor": "Anthropic", "note": "Model training data"},
+    {"ua": "Meta-ExternalAgent", "vendor": "Meta", "note": "Model training data"},
+    {"ua": "CCBot", "vendor": "Common Crawl", "note": "Open training corpus"},
+    {"ua": "Amazonbot", "vendor": "Amazon", "note": "Alexa/Rufus training"},
+    {"ua": "cohere-ai", "vendor": "Cohere", "note": "Model training data"},
+    {"ua": "Bytespider", "vendor": "ByteDance",
+     "note": "Non-compliant — ignores robots.txt; block at CDN/WAF layer"},
+]
+
+_TRAINING_TOKENS = [
+    {"ua": "Google-Extended", "vendor": "Google",
+     "note": "Opt-out token for Gemini/AI training (not a crawler)"},
+    {"ua": "Applebot-Extended", "vendor": "Apple",
+     "note": "Opt-out token for Apple Intelligence training (not a crawler)"},
+]
+
+_SEARCH_CRAWLERS = [
+    {"ua": "OAI-SearchBot", "vendor": "OpenAI", "note": "ChatGPT Search indexing"},
+    {"ua": "Claude-SearchBot", "vendor": "Anthropic", "note": "Claude search indexing"},
+    {"ua": "PerplexityBot", "vendor": "Perplexity",
+     "note": "AI search; documented non-compliant with robots.txt"},
+    {"ua": "Meta-WebIndexer", "vendor": "Meta", "note": "Meta AI search indexing"},
+    {"ua": "DuckAssistBot", "vendor": "DuckDuckGo", "note": "AI assist answers"},
+    {"ua": "YouBot", "vendor": "You.com", "note": "You.com AI search"},
+    {"ua": "PhindBot", "vendor": "Phind", "note": "Developer AI search"},
+]
+
+_USER_TRIGGERED = [
+    {"ua": "ChatGPT-User", "vendor": "OpenAI",
+     "note": "Fetches pages when users ask ChatGPT"},
+    {"ua": "Claude-User", "vendor": "Anthropic",
+     "note": "Fetches pages when users ask Claude"},
+    {"ua": "Perplexity-User", "vendor": "Perplexity",
+     "note": "User-triggered; documented non-compliant"},
+    {"ua": "MistralAI-User", "vendor": "Mistral",
+     "note": "Fetches pages when users ask Le Chat"},
+]
+
+_ROBOTS_BLIND_SPOTS = [
+    {"name": "Google-Agent", "vendor": "Google",
+     "note": "Agentic fetcher — officially ignores robots.txt (Google policy)"},
+    {"name": "Gemini-Deep-Research", "vendor": "Google",
+     "note": "Deep research fetcher — robots.txt compliance unclear"},
+    {"name": "xAI/Grok", "vendor": "xAI",
+     "note": "No official UA; uses residential IP + spoofed browser UAs"},
+    {"name": "DeepSeek", "vendor": "DeepSeek",
+     "note": "No official UA; crawls as regular browser traffic"},
 ]
 
 
@@ -29,15 +66,17 @@ def generate_robots_txt(
     geo_result: dict,
     url: str = "",
     *,
-    allow_training: bool = True,
+    allow_training: bool = False,
     sitemap_url: str = "",
 ) -> str:
-    """Generate recommended robots.txt content.
+    """Generate recommended robots.txt with three-category AI crawler management.
 
     Args:
-        geo_result: GEO analysis result dict
+        geo_result: GEO analysis result dict (currently unused, reserved for
+                    future context-aware generation)
         url: The analyzed URL (used for Sitemap hint)
-        allow_training: If False, Disallow training-only crawlers
+        allow_training: If True, Allow training crawlers. Default is False
+                       (block training, allow search/user-triggered).
         sitemap_url: Custom sitemap URL to include
     """
     lines: list[str] = []
@@ -45,40 +84,75 @@ def generate_robots_txt(
 
     lines.append(f"# robots.txt — AI-optimized (generated by GEO Checker on {now})")
     lines.append("# Source: https://gc.ranran.tw")
+    lines.append("#")
+    lines.append("# Strategy: Block training crawlers, allow search/retrieval")
+    lines.append("# and user-triggered fetchers for AI citation visibility.")
     lines.append("")
 
-    # General rules
-    lines.append("# General crawlers")
+    lines.append("# === General ===")
     lines.append("User-agent: *")
     lines.append("Allow: /")
     lines.append("")
 
-    # AI crawler rules
-    lines.append("# === AI Search Crawlers (recommended: Allow for GEO visibility) ===")
+    # Training crawlers
+    training_rule = "Allow: /" if allow_training else "Disallow: /"
+    lines.append("# === Training Crawlers (opt out of model training) ===")
+    if not allow_training:
+        lines.append("# Blocking these prevents your content from being used")
+        lines.append("# in AI model training, while keeping AI search visibility.")
     lines.append("")
 
-    for crawler in _AI_CRAWLERS:
-        ua = crawler["ua"]
-        purpose = crawler["purpose"]
-        is_training = "training" in purpose.lower()
-
-        if is_training and not allow_training:
-            rule = "Disallow: /"
-            note = "blocked (training-only)"
-        else:
-            rule = "Allow: /"
-            note = purpose
-
-        lines.append(f"# {note}")
-        lines.append(f"User-agent: {ua}")
-        lines.append(rule)
+    for c in _TRAINING_CRAWLERS:
+        lines.append(f"# {c['vendor']}: {c['note']}")
+        lines.append(f"User-agent: {c['ua']}")
+        lines.append(training_rule)
         lines.append("")
+
+    # Training opt-out tokens
+    lines.append("# === Training Opt-Out Tokens ===")
+    lines.append("# These are NOT crawlers — they are robots.txt control tokens")
+    lines.append("# that opt out of AI training without affecting search visibility.")
+    lines.append("")
+
+    for t in _TRAINING_TOKENS:
+        lines.append(f"# {t['vendor']}: {t['note']}")
+        lines.append(f"User-agent: {t['ua']}")
+        lines.append("Disallow: /" if not allow_training else "Allow: /")
+        lines.append("")
+
+    # Search/retrieval crawlers
+    lines.append("# === Search/Retrieval Crawlers (allow for AI answer visibility) ===")
+    lines.append("# Allowing these lets your content appear in AI-generated answers.")
+    lines.append("")
+
+    for c in _SEARCH_CRAWLERS:
+        lines.append(f"# {c['vendor']}: {c['note']}")
+        lines.append(f"User-agent: {c['ua']}")
+        lines.append("Allow: /")
+        lines.append("")
+
+    # User-triggered fetchers
+    lines.append("# === User-Triggered Fetchers (allow for citation traffic) ===")
+    lines.append("# These fetch your pages when real users ask AI assistants questions.")
+    lines.append("")
+
+    for c in _USER_TRIGGERED:
+        lines.append(f"# {c['vendor']}: {c['note']}")
+        lines.append(f"User-agent: {c['ua']}")
+        lines.append("Allow: /")
+        lines.append("")
+
+    # Blind spots advisory
+    lines.append("# === Robots.txt Blind Spots (cannot be controlled here) ===")
+    for bs in _ROBOTS_BLIND_SPOTS:
+        lines.append(f"# {bs['name']} ({bs['vendor']}): {bs['note']}")
+    lines.append("# → Control these at CDN/WAF layer (e.g., Cloudflare, AWS WAF).")
+    lines.append("")
 
     # Sitemap
     if sitemap_url:
         lines.append(f"Sitemap: {sitemap_url}")
     elif url:
-        from urllib.parse import urlparse
         parsed = urlparse(url)
         base = f"{parsed.scheme}://{parsed.netloc}"
         lines.append(f"Sitemap: {base}/sitemap.xml")
@@ -87,10 +161,9 @@ def generate_robots_txt(
 
     # llms.txt hint
     if url:
-        from urllib.parse import urlparse
         parsed = urlparse(url)
         base = f"{parsed.scheme}://{parsed.netloc}"
-        lines.append("# AI Content Index (experimental)")
+        lines.append("# AI content index (low adoption; hygiene signal, not a ranking lever)")
         lines.append(f"# {base}/llms.txt")
 
     return "\n".join(lines)

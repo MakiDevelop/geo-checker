@@ -1,4 +1,4 @@
-"""GEO rule checks (v4.0.1) - Enhanced with 14 AI crawlers, new GEO signals, citation simulator."""
+"""GEO rule checks (v4.1.0) - 22 AI crawlers, three-category model, non-compliance warnings."""
 from __future__ import annotations
 
 import re
@@ -19,78 +19,123 @@ _AGENT_MAP: dict[str, dict[str, str]] = {
     # --- Core (always checked, affect score) ---
     "gptbot": {
         "display": "GPTBot", "vendor": "OpenAI",
-        "purpose": "both",
+        "purpose": "training", "category": "training",
     },
     "oai-searchbot": {
         "display": "OAI-SearchBot", "vendor": "OpenAI",
-        "purpose": "search",
+        "purpose": "search", "category": "search",
+    },
+    "chatgpt-user": {
+        "display": "ChatGPT-User", "vendor": "OpenAI",
+        "purpose": "search", "category": "user-triggered",
     },
     "claudebot": {
         "display": "ClaudeBot", "vendor": "Anthropic",
-        "purpose": "both",
+        "purpose": "training", "category": "training",
     },
-    "anthropic-ai": {
-        "display": "anthropic-ai", "vendor": "Anthropic",
-        "purpose": "training",
+    "claude-searchbot": {
+        "display": "Claude-SearchBot", "vendor": "Anthropic",
+        "purpose": "search", "category": "search",
+    },
+    "claude-user": {
+        "display": "Claude-User", "vendor": "Anthropic",
+        "purpose": "search", "category": "user-triggered",
     },
     "perplexitybot": {
         "display": "PerplexityBot", "vendor": "Perplexity",
-        "purpose": "search",
+        "purpose": "search", "category": "search",
+        "compliance": "inconsistent",
+    },
+    "perplexity-user": {
+        "display": "Perplexity-User", "vendor": "Perplexity",
+        "purpose": "search", "category": "user-triggered",
+        "compliance": "inconsistent",
     },
     "google-extended": {
         "display": "Google-Extended", "vendor": "Google",
-        "purpose": "training",
+        "purpose": "training", "category": "training",
+        "bot_type": "token",
+    },
+    "google-agent": {
+        "display": "Google-Agent", "vendor": "Google",
+        "purpose": "search", "category": "user-triggered",
+        "compliance": "ignores",
+    },
+    "gemini-deep-research": {
+        "display": "Gemini-Deep-Research", "vendor": "Google",
+        "purpose": "search", "category": "user-triggered",
     },
     # --- Extended (checked, reported, minor score impact) ---
-    # Note: applebot-extended is listed here but scored as core
-    # because Apple Intelligence is a major AI platform
     "applebot-extended": {
         "display": "Applebot-Extended", "vendor": "Apple",
-        "purpose": "training",
+        "purpose": "training", "category": "training",
+        "bot_type": "token",
     },
     "meta-externalagent": {
         "display": "Meta-ExternalAgent", "vendor": "Meta",
-        "purpose": "training",
+        "purpose": "training", "category": "training",
+    },
+    "meta-webindexer": {
+        "display": "Meta-WebIndexer", "vendor": "Meta",
+        "purpose": "search", "category": "search",
     },
     "amazonbot": {
         "display": "Amazonbot", "vendor": "Amazon",
-        "purpose": "search",
+        "purpose": "training", "category": "training",
+    },
+    "duckassistbot": {
+        "display": "DuckAssistBot", "vendor": "DuckDuckGo",
+        "purpose": "search", "category": "search",
+    },
+    "mistralai-user": {
+        "display": "MistralAI-User", "vendor": "Mistral",
+        "purpose": "search", "category": "user-triggered",
     },
     "youbot": {
         "display": "YouBot", "vendor": "You.com",
-        "purpose": "search",
+        "purpose": "search", "category": "search",
     },
     "ccbot": {
         "display": "CCBot", "vendor": "Common Crawl",
-        "purpose": "training",
+        "purpose": "training", "category": "training",
     },
     "phindbot": {
         "display": "PhindBot", "vendor": "Phind",
-        "purpose": "search",
+        "purpose": "search", "category": "search",
     },
     "cohere-ai": {
         "display": "cohere-ai", "vendor": "Cohere",
-        "purpose": "training",
+        "purpose": "training", "category": "training",
     },
     "bytespider": {
         "display": "Bytespider", "vendor": "ByteDance",
-        "purpose": "training",
+        "purpose": "training", "category": "training",
+        "compliance": "non-compliant",
     },
 }
 
 # Core crawlers that affect the main GEO score
 _CORE_CRAWLERS = {
-    "gptbot", "oai-searchbot", "claudebot", "perplexitybot",
-    "google-extended", "applebot-extended",
+    "gptbot", "oai-searchbot", "chatgpt-user",
+    "claudebot", "claude-searchbot", "claude-user",
+    "perplexitybot",
+    "google-extended", "google-agent", "applebot-extended",
 }
 
 # Legacy key mapping for backward compatibility with stored results
 _LEGACY_KEY_MAP = {
     "google-extended": "google_extended",
     "oai-searchbot": "oai_searchbot",
+    "chatgpt-user": "chatgpt_user",
+    "claude-searchbot": "claude_searchbot",
+    "claude-user": "claude_user",
+    "perplexity-user": "perplexity_user",
+    "google-agent": "google_agent",
+    "gemini-deep-research": "gemini_deep_research",
     "applebot-extended": "applebot_extended",
     "meta-externalagent": "meta_externalagent",
-    "anthropic-ai": "anthropic_ai",
+    "meta-webindexer": "meta_webindexer",
+    "mistralai-user": "mistralai_user",
     "cohere-ai": "cohere_ai",
 }
 
@@ -233,12 +278,19 @@ def _ai_crawler_access(
         crawlers = {}
         for key, info in _AGENT_MAP.items():
             rk = _result_key(key)
-            crawlers[rk] = {
+            entry = {
                 "status": default_status,
                 "display": info["display"],
                 "vendor": info["vendor"],
                 "purpose": info["purpose"],
             }
+            if "category" in info:
+                entry["category"] = info["category"]
+            if "compliance" in info:
+                entry["compliance"] = info["compliance"]
+            if "bot_type" in info:
+                entry["bot_type"] = info["bot_type"]
+            crawlers[rk] = entry
         result = {
             "robots_txt_found": False,
             "crawlers": crawlers,
@@ -762,8 +814,8 @@ def _score_accessibility(ai_access: dict, blockers: list[str]) -> int:
                     crawler_penalty += 1
     else:
         # Legacy format fallback (flat keys)
-        for key in ("gptbot", "claudebot", "perplexitybot",
-                     "google_extended"):
+        for key in ("gptbot", "claudebot", "claude_searchbot",
+                     "perplexitybot", "google_extended", "google_agent"):
             if ai_access.get(key) == "disallow":
                 crawler_penalty += 5
     # Cap crawler penalty at 30 to avoid over-saturation
@@ -1013,8 +1065,10 @@ def _generate_summary(
             legacy_names = {
                 "gptbot": "GPTBot",
                 "claudebot": "ClaudeBot",
+                "claude_searchbot": "Claude-SearchBot",
                 "perplexitybot": "PerplexityBot",
                 "google_extended": "Google-Extended",
+                "google_agent": "Google-Agent",
             }
             blocked_crawlers = [
                 name for key, name in legacy_names.items()
@@ -1030,6 +1084,19 @@ def _generate_summary(
         meta_robots = ai_access.get("meta_robots", {})
         if meta_robots.get("noindex"):
             issues["critical"].append({"key": "noindex_set"})
+
+        # Flag bots that ignore robots.txt
+        if crawlers:
+            non_compliant = [
+                info["display"]
+                for info in crawlers.values()
+                if info.get("compliance") in ("ignores", "non-compliant", "inconsistent")
+            ]
+            if non_compliant:
+                issues["warning"].append({
+                    "key": "non_compliant_crawlers",
+                    "crawlers": non_compliant,
+                })
 
     # Check warnings
     schema_org = parsed.get("schema_org", {})
