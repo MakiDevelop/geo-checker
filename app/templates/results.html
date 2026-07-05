@@ -365,7 +365,7 @@
               {% set crawlers_dict = crawler.get("crawlers", {}) if crawler is mapping else {} %}
               {% if crawlers_dict %}
               <div class="crawler-grid">
-                {% set core_keys = ["gptbot", "oai_searchbot", "claudebot", "perplexitybot", "google_extended", "applebot_extended"] %}
+                {% set core_keys = ["gptbot", "oai_searchbot", "chatgpt_user", "claudebot", "claude_searchbot", "claude_user", "perplexitybot", "google_extended", "google_agent", "applebot_extended"] %}
                 {% for key, info in crawlers_dict.items() %}
                 <div class="crawler-item{% if key in core_keys %} crawler-core{% endif %}">
                   <div class="crawler-info">

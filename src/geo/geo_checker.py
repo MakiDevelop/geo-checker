@@ -91,6 +91,10 @@ _AGENT_MAP: dict[str, dict[str, str]] = {
         "display": "MistralAI-User", "vendor": "Mistral",
         "purpose": "search", "category": "user-triggered",
     },
+    "mistralai-index": {
+        "display": "MistralAI-Index", "vendor": "Mistral",
+        "purpose": "search", "category": "search",
+    },
     "youbot": {
         "display": "YouBot", "vendor": "You.com",
         "purpose": "search", "category": "search",
@@ -136,6 +140,7 @@ _LEGACY_KEY_MAP = {
     "meta-externalagent": "meta_externalagent",
     "meta-webindexer": "meta_webindexer",
     "mistralai-user": "mistralai_user",
+    "mistralai-index": "mistralai_index",
     "cohere-ai": "cohere_ai",
 }
 

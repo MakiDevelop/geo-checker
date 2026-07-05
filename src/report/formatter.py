@@ -139,7 +139,7 @@ def _format_cli(results: dict) -> str:
 
     lines.append("")
 
-    # AI Crawler Access (dynamic — supports 14+ crawlers)
+    # AI Crawler Access (dynamic — 22 crawlers, 3 categories)
     ai_access = geo.get("ai_crawler_access", {})
     lines.append("[bold]AI Crawler Access:[/bold]")
 

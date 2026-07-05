@@ -37,6 +37,7 @@ _SEARCH_CRAWLERS = [
     {"ua": "DuckAssistBot", "vendor": "DuckDuckGo", "note": "AI assist answers"},
     {"ua": "YouBot", "vendor": "You.com", "note": "You.com AI search"},
     {"ua": "PhindBot", "vendor": "Phind", "note": "Developer AI search"},
+    {"ua": "MistralAI-Index", "vendor": "Mistral", "note": "Mistral search indexing"},
 ]
 
 _USER_TRIGGERED = [
