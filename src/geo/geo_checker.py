@@ -1579,6 +1579,12 @@ def check_geo(
             "eeat": eeat,
             "image_quality": image_quality,
             "llms_txt": llms_txt,
+            "web_bot_auth": {
+                "found": (
+                    fetch_result.web_bot_auth_found
+                    if fetch_result else False
+                ),
+            },
             "citation_simulation": citation_simulation,
         },
     }

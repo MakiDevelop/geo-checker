@@ -56,6 +56,7 @@ class FetchResult:
     llms_txt: str = ""
     llms_txt_found: bool = False
     llms_txt_path: str = ""  # which variant was found
+    web_bot_auth_found: bool = False
 
 
 def _is_url(source: str) -> bool:
@@ -175,6 +176,26 @@ def _fetch_llms_txt(url: str) -> tuple[bool, str, str]:
     return miss
 
 
+def _probe_web_bot_auth(url: str) -> bool:
+    """Probe for IETF Web Bot Auth directory (draft standard).
+
+    Checks /.well-known/http-message-signatures-directory.
+    Returns True if the endpoint exists (HTTP 200).
+    """
+    parsed = urlparse(url)
+    probe_url = (
+        f"{parsed.scheme}://{parsed.netloc}"
+        "/.well-known/http-message-signatures-directory"
+    )
+    fetched = _safe_pinned_fetch(
+        probe_url,
+        timeout_seconds=3,
+        max_size=8192,
+        max_redirects=0,
+    )
+    return fetched is not None and fetched.status == 200
+
+
 def _needs_js_render(html: str, content_type: str) -> bool:
     if "JavaScript must be enabled" in html:
         return True
@@ -240,6 +261,9 @@ def fetch_html(source: str) -> FetchResult:
     robots_found, robots_text = _fetch_robots_txt(fetched.final_url)
     llms_found, llms_text, llms_path = _fetch_llms_txt(fetched.final_url)
 
+    # Probe for IETF Web Bot Auth (draft standard, BCP target Aug 2026)
+    wba_found = _probe_web_bot_auth(fetched.final_url)
+
     return FetchResult(
         html=html,
         headers=fetched.headers,
@@ -249,4 +273,5 @@ def fetch_html(source: str) -> FetchResult:
         llms_txt=llms_text,
         llms_txt_found=llms_found,
         llms_txt_path=llms_path,
+        web_bot_auth_found=wba_found,
     )
