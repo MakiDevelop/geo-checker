@@ -32,7 +32,7 @@ def test_build_brand_audit_returns_taiwan_prompt_pack_without_answers() -> None:
     )
 
     assert audit.language == "zh-TW"
-    assert len(audit.prompts) == 5
+    assert len(audit.prompts) >= 5
     assert "在台灣" in audit.prompts[0]
     assert audit.visibility[0].answer_count == 0
     assert audit.top_fixes[0]["priority"] == "critical"

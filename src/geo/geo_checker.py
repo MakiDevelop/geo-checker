@@ -351,11 +351,22 @@ def _ai_crawler_access(
     if x_robots["noindex"] or x_robots["nofollow"]:
         notes.append("X-Robots-Tag contains noindex/nofollow.")
 
+    # Cloudflare detection (relevant for 2026-09-15 default-block policy)
+    is_cloudflare = any(
+        k.lower() in ("cf-ray", "cf-cache-status")
+        for k in resp_headers
+    ) or any(
+        "cloudflare" in str(v).lower()
+        for k, v in resp_headers.items()
+        if k.lower() == "server"
+    )
+
     result = {
         "robots_txt_found": found,
         "crawlers": crawlers,
         "meta_robots": meta_robots,
         "x_robots_tag": x_robots,
+        "is_cloudflare": is_cloudflare,
         "notes": (
             " ".join(notes)
             if notes
@@ -1103,6 +1114,9 @@ def _generate_summary(
                     "crawlers": non_compliant,
                 })
 
+        if ai_access.get("is_cloudflare"):
+            issues["warning"].append({"key": "cloudflare_ai_policy"})
+
     # Check warnings
     schema_org = parsed.get("schema_org", {})
     if not schema_org.get("available") or not schema_org.get("types_found"):
@@ -1220,6 +1234,10 @@ def _generate_summary(
             issues["warning"].append({"key": "poor_alt_text"})
         elif alt_cov >= 0.9:
             issues["good"].append({"key": "good_alt_text"})
+
+    rendering = parsed.get("rendering", {})
+    if rendering.get("likely_csr_only"):
+        issues["critical"].append({"key": "likely_csr_only"})
 
     # Generate one-line summary
     grade = geo_score.get("grade", "C")
@@ -1366,12 +1384,17 @@ def _assess_freshness(parsed: dict) -> dict:
         except (ValueError, TypeError, OverflowError):
             pass  # Can't parse date, keep base score
 
+    has_visible = freshness.get("has_visible_update_date", False)
+    if has_visible:
+        score += 1
+
     return {
         "date_published": pub,
         "date_modified": mod,
         "has_dates": freshness.get("has_dates", False),
+        "has_visible_update_date": has_visible,
         "score": score,
-        "max_score": 4,
+        "max_score": 5,
     }
 
 

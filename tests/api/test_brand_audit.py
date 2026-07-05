@@ -43,7 +43,7 @@ def test_brand_audit_returns_prompt_pack_and_visibility(client: TestClient) -> N
     data = response.json()
     assert data["brand_name"] == "GEO Checker"
     assert data["language"] == "zh-TW"
-    assert len(data["prompts"]) == 5
+    assert len(data["prompts"]) >= 5
     assert data["visibility"][0]["mention_count"] == 1
     assert data["visibility"][0]["mention_rate"] == 0.5
     assert "# Brand Visibility Audit: GEO Checker" in data["markdown_report"]

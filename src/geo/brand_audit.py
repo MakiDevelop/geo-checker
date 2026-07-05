@@ -37,6 +37,25 @@ GENERIC_TEMPLATES = [
     "Summarize {brand} and cite the most useful sources.",
 ]
 
+ENGINE_SPECIFIC_TEMPLATES = {
+    "chatgpt": [
+        "Search the web: what is {brand} and how does it compare to {competitor}?",
+        "Find recent information about {brand} for {use_case}.",
+    ],
+    "perplexity": [
+        "What is {brand}? Compare with {competitor} for {use_case}.",
+        "List the top {category} solutions available in 2026 with sources.",
+    ],
+    "gemini": [
+        "@Google Search: compare {brand} vs {competitor} for {use_case}",
+        "What do experts say about {brand} in {category}?",
+    ],
+    "google_ai_mode": [
+        "{brand} vs {competitor} — which is better for {use_case}?",
+        "Help me evaluate {category} options including {brand}",
+    ],
+}
+
 
 @dataclass(frozen=True)
 class VisibilityEntity:
@@ -163,21 +182,35 @@ def build_prompt_pack(
     competitors: list[str],
     category: str,
     use_case: str,
+    engines: list[str] | None = None,
 ) -> list[str]:
-    """Generate localized prompts for answer-engine visibility checks."""
+    """Generate localized + engine-specific prompts for visibility checks.
+
+    Args:
+        engines: If provided, also generate engine-specific prompts
+                 (e.g. ["chatgpt", "perplexity", "gemini", "google_ai_mode"]).
+                 Default: all engines.
+    """
     config = DEFAULT_REGION_QUERIES.get(region.lower())
     templates = config["templates"] if config else GENERIC_TEMPLATES
     competitor = competitors[0] if competitors else "主要競品"
 
-    return [
-        template.format(
-            brand=brand_name,
-            competitor=competitor,
-            category=category,
-            use_case=use_case,
-        )
-        for template in templates
-    ]
+    fmt = {
+        "brand": brand_name,
+        "competitor": competitor,
+        "category": category,
+        "use_case": use_case,
+    }
+
+    prompts = [t.format(**fmt) for t in templates]
+
+    target_engines = engines or list(ENGINE_SPECIFIC_TEMPLATES.keys())
+    for engine in target_engines:
+        engine_templates = ENGINE_SPECIFIC_TEMPLATES.get(engine, [])
+        for t in engine_templates:
+            prompts.append(f"[{engine}] {t.format(**fmt)}")
+
+    return prompts
 
 
 def score_visibility(

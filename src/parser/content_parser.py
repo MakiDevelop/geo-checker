@@ -693,10 +693,20 @@ def _extract_freshness(
             dates["published"] = dt
             break
 
+    # 4. Visible "Last Updated" text in page body
+    _UPDATE_PATTERNS = re.compile(
+        r"(last\s*updated|updated\s*on|最終更新|更新日期|最後更新|更新時間)",
+        re.IGNORECASE,
+    )
+    body = soup.find("body")
+    body_text = body.get_text(" ", strip=True)[:5000] if body else ""
+    has_visible_update_date = bool(_UPDATE_PATTERNS.search(body_text))
+
     return {
         "date_published": dates.get("published", ""),
         "date_modified": dates.get("modified", ""),
         "has_dates": bool(dates),
+        "has_visible_update_date": has_visible_update_date,
     }
 
 
@@ -801,6 +811,41 @@ def _extract_images(soup: BeautifulSoup) -> dict:
         "descriptive_ratio": (
             round(descriptive / total, 2) if total > 0 else 1.0
         ),
+    }
+
+
+def _detect_rendering_mode(soup: BeautifulSoup, word_count: int) -> dict:
+    """Detect if the page relies on client-side JS rendering (CSR).
+
+    AI crawlers typically cannot execute JavaScript, so CSR-only pages
+    are invisible to most AI search engines.
+    """
+    scripts = soup.find_all("script", src=True)
+    csr_frameworks = {"react", "vue", "angular", "next", "nuxt", "svelte", "gatsby"}
+    detected_frameworks = []
+    for s in scripts:
+        src = (s.get("src") or "").lower()
+        for fw in csr_frameworks:
+            if fw in src:
+                detected_frameworks.append(fw)
+
+    noscript = soup.find("noscript")
+    has_noscript_fallback = bool(noscript and len(noscript.get_text(strip=True)) > 50)
+
+    root_div = (
+        soup.find("div", id="root")
+        or soup.find("div", id="app")
+        or soup.find("div", id="__next")
+    )
+    has_spa_root = root_div is not None
+
+    likely_csr = has_spa_root and word_count < 100 and not has_noscript_fallback
+
+    return {
+        "detected_frameworks": list(set(detected_frameworks)),
+        "has_noscript_fallback": has_noscript_fallback,
+        "has_spa_root": has_spa_root,
+        "likely_csr_only": likely_csr,
     }
 
 
@@ -1015,4 +1060,5 @@ def parse_content(html: str, url: str = "") -> dict:
         "freshness": freshness,
         "author_info": author_info,
         "images": images,
+        "rendering": _detect_rendering_mode(soup, word_count),
     }
