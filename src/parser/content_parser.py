@@ -433,6 +433,9 @@ def _extract_schema_org(html: str, url: str = "") -> dict:
             "has_person": False,
             "has_product": False,
             "has_breadcrumb": False,
+            "has_graph": False,
+            "same_as_links": [],
+            "has_authority_same_as": False,
             "score_contribution": 0,
         }
 
@@ -447,18 +450,26 @@ def _extract_schema_org(html: str, url: str = "") -> dict:
         schemas = []
         types_found = set()
 
-        # Process JSON-LD
+        # Process JSON-LD (flatten @graph nodes into individual items)
+        def _add_jsonld_item(item: dict, source: str = "json-ld") -> None:
+            schema_type = item.get('@type', 'Unknown')
+            if isinstance(schema_type, list):
+                schema_type = schema_type[0] if schema_type else 'Unknown'
+            types_found.add(schema_type)
+            schemas.append({
+                "type": schema_type,
+                "source": source,
+                "data": item,
+            })
+
         for item in data.get('json-ld', []):
             if isinstance(item, dict):
-                schema_type = item.get('@type', 'Unknown')
-                if isinstance(schema_type, list):
-                    schema_type = schema_type[0] if schema_type else 'Unknown'
-                types_found.add(schema_type)
-                schemas.append({
-                    "type": schema_type,
-                    "source": "json-ld",
-                    "data": item
-                })
+                if '@graph' in item and isinstance(item['@graph'], list):
+                    for node in item['@graph']:
+                        if isinstance(node, dict):
+                            _add_jsonld_item(node, "json-ld/@graph")
+                else:
+                    _add_jsonld_item(item)
 
         # Process microdata
         for item in data.get('microdata', []):
@@ -497,25 +508,67 @@ def _extract_schema_org(html: str, url: str = "") -> dict:
         has_product = any(t in types_found for t in ['Product', 'Offer'])
         has_breadcrumb = 'BreadcrumbList' in types_found
 
+        # Detect @graph usage (connected entities via JSON-LD @graph array)
+        has_graph = False
+        for item in data.get('json-ld', []):
+            if isinstance(item, dict) and '@graph' in item:
+                has_graph = True
+                break
+
+        # Extract sameAs links from Organization/Person schemas
+        same_as_links = []
+        _AUTHORITY_DOMAINS = {
+            'wikidata.org', 'wikipedia.org', 'linkedin.com',
+            'crunchbase.com', 'twitter.com', 'x.com',
+            'github.com', 'youtube.com',
+        }
+        for schema in schemas:
+            s_data = schema.get("data", {})
+            s_type = schema.get("type", "")
+            if s_type not in ('Organization', 'Person', 'Corporation'):
+                continue
+            raw_same_as = s_data.get("sameAs", [])
+            if isinstance(raw_same_as, str):
+                raw_same_as = [raw_same_as]
+            elif isinstance(raw_same_as, dict):
+                raw_same_as = [raw_same_as]
+            for link in raw_same_as:
+                if isinstance(link, dict):
+                    link = link.get("@id", link.get("url", ""))
+                if not isinstance(link, str) or not link:
+                    continue
+                is_authority = any(d in link.lower() for d in _AUTHORITY_DOMAINS)
+                same_as_links.append({
+                    "url": link,
+                    "authority": is_authority,
+                })
+        has_authority_same_as = any(sa["authority"] for sa in same_as_links)
+
         # Calculate score contribution (0-15 points possible)
         score = 0
         if schemas:
-            score += 5  # Base points for having any schema
+            score += 5
         if has_article:
             score += 3
         if has_faq:
-            score += 4  # FAQ is very valuable for AI
+            score += 4
         if has_howto:
             score += 3
+        if has_product:
+            score += 2
         if has_qa:
             score += 3
         if has_breadcrumb:
             score += 1
-        score = min(score, 15)  # Cap at 15
+        if has_graph:
+            score += 2
+        if has_authority_same_as:
+            score += 2
+        score = min(score, 15)
 
         return {
             "available": True,
-            "schemas": schemas[:10],  # Limit to 10 schemas
+            "schemas": schemas[:10],
             "types_found": types_list,
             "has_article": has_article,
             "has_faq": has_faq,
@@ -525,6 +578,9 @@ def _extract_schema_org(html: str, url: str = "") -> dict:
             "has_person": has_person,
             "has_product": has_product,
             "has_breadcrumb": has_breadcrumb,
+            "has_graph": has_graph,
+            "same_as_links": same_as_links[:10],
+            "has_authority_same_as": has_authority_same_as,
             "score_contribution": score,
         }
 
@@ -541,6 +597,9 @@ def _extract_schema_org(html: str, url: str = "") -> dict:
             "has_person": False,
             "has_product": False,
             "has_breadcrumb": False,
+            "has_graph": False,
+            "same_as_links": [],
+            "has_authority_same_as": False,
             "score_contribution": 0,
         }
 

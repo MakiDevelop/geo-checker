@@ -1,48 +1,48 @@
-"""JSON-LD Schema Generator — generate AI-friendly structured data."""
+"""JSON-LD Schema Generator — @graph-connected, AI-friendly structured data."""
 from __future__ import annotations
 
 import json
+from urllib.parse import urldefrag
+
+
+def _make_id(url: str, fragment: str) -> str:
+    """Build a fragment-based @id, stripping any existing fragment first."""
+    base, _ = urldefrag(url)
+    return f"{base}#{fragment}"
 
 
 def generate_article_schema(parsed: dict) -> dict:
-    """Generate Article JSON-LD from parsed content."""
+    """Generate Article node for @graph."""
     meta = parsed.get("meta", {})
     author = parsed.get("author_info", {})
     freshness = parsed.get("freshness", {})
     stats = parsed.get("stats", {})
 
+    url = parsed.get("url", "")
     schema: dict = {
-        "@context": "https://schema.org",
         "@type": "Article",
         "headline": meta.get("title", ""),
         "description": meta.get("description", ""),
     }
 
-    # URL
-    url = parsed.get("url", "")
     if url:
+        schema["@id"] = _make_id(url, "article")
         schema["url"] = url
-        schema["mainEntityOfPage"] = {
-            "@type": "WebPage",
-            "@id": url,
-        }
+        schema["mainEntityOfPage"] = {"@id": url}
+        schema["isPartOf"] = {"@id": _make_id(url, "website")}
 
-    # Author
     author_name = author.get("name", "")
     if author_name:
-        schema["author"] = {
+        schema["author"] = {"@id": _make_id(url, "author")} if url else {
             "@type": "Person",
             "name": author_name,
         }
-        if author.get("url"):
-            schema["author"]["url"] = author["url"]
     else:
         schema["author"] = {
             "@type": "Person",
             "name": "[Your Name]",
         }
 
-    # Dates
     pub = freshness.get("date_published", "")
     mod = freshness.get("date_modified", "")
     if pub:
@@ -50,7 +50,6 @@ def generate_article_schema(parsed: dict) -> dict:
     if mod:
         schema["dateModified"] = mod
 
-    # Word count
     wc = stats.get("word_count", 0)
     if wc > 0:
         schema["wordCount"] = wc
@@ -58,20 +57,59 @@ def generate_article_schema(parsed: dict) -> dict:
     return schema
 
 
-def generate_faq_schema(parsed: dict) -> dict | None:
-    """Generate FAQPage JSON-LD from Q&A headings.
+def generate_person_schema(parsed: dict) -> dict | None:
+    """Generate Person node for @graph (author E-E-A-T)."""
+    author = parsed.get("author_info", {})
+    author_name = author.get("name", "")
+    if not author_name:
+        return None
 
-    Only generates if Q&A structure is detected.
-    """
+    url = parsed.get("url", "")
+    schema: dict = {
+        "@type": "Person",
+        "name": author_name,
+    }
+    if url:
+        schema["@id"] = _make_id(url, "author")
+    if author.get("url"):
+        schema["url"] = author["url"]
+
+    return schema
+
+
+def generate_organization_schema(parsed: dict) -> dict | None:
+    """Generate Organization node for @graph."""
+    schema_org = parsed.get("schema_org", {})
+    for s in schema_org.get("schemas", []):
+        if s.get("type") in ("Organization", "Corporation"):
+            data = s.get("data", {})
+            org: dict = {
+                "@type": data.get("@type", "Organization"),
+                "name": data.get("name", ""),
+            }
+            url = parsed.get("url", "")
+            if url:
+                org["@id"] = _make_id(url, "organization")
+            if data.get("url"):
+                org["url"] = data["url"]
+            same_as = data.get("sameAs", [])
+            if isinstance(same_as, str):
+                same_as = [same_as]
+            if same_as:
+                org["sameAs"] = same_as
+            return org
+    return None
+
+
+def generate_faq_schema(parsed: dict) -> dict | None:
+    """Generate FAQPage JSON-LD from Q&A headings."""
     content = parsed.get("content", {})
     headings = content.get("headings", [])
 
-    # Find question headings with answers
     faq_items = []
     for h in headings:
         text = h.get("text", "")
         paras = h.get("paragraphs", [])
-        # Check if heading looks like a question
         if (text.endswith("?") or text.endswith("？")) and paras:
             faq_items.append({
                 "@type": "Question",
@@ -86,25 +124,43 @@ def generate_faq_schema(parsed: dict) -> dict | None:
         return None
 
     return {
-        "@context": "https://schema.org",
         "@type": "FAQPage",
         "mainEntity": faq_items[:10],
     }
 
 
 def generate_all_schemas(parsed: dict) -> list[dict]:
-    """Generate all applicable JSON-LD schemas for the page."""
-    schemas = []
+    """Generate @graph-connected JSON-LD schemas.
 
-    # Always generate Article schema
-    schemas.append(generate_article_schema(parsed))
+    Uses @graph to link Article → Person (author) → Organization,
+    giving AI systems multiple entity extraction pathways.
+    """
+    graph_nodes = []
 
-    # Generate FAQ if applicable
+    article = generate_article_schema(parsed)
+    graph_nodes.append(article)
+
+    person = generate_person_schema(parsed)
+    if person:
+        graph_nodes.append(person)
+
+    org = generate_organization_schema(parsed)
+    if org:
+        graph_nodes.append(org)
+
     faq = generate_faq_schema(parsed)
     if faq:
-        schemas.append(faq)
+        graph_nodes.append(faq)
 
-    return schemas
+    if len(graph_nodes) >= 2:
+        return [{
+            "@context": "https://schema.org",
+            "@graph": graph_nodes,
+        }]
+
+    for node in graph_nodes:
+        node["@context"] = "https://schema.org"
+    return graph_nodes
 
 
 def schemas_to_html(schemas: list[dict]) -> str:

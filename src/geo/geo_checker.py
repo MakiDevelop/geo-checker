@@ -1130,6 +1130,18 @@ def _generate_summary(
     if schema_org.get("has_breadcrumb"):
         issues["good"].append({"key": "has_breadcrumb_schema"})
 
+    if schema_org.get("has_howto"):
+        issues["good"].append({"key": "has_howto_schema"})
+
+    if schema_org.get("has_product"):
+        issues["good"].append({"key": "has_product_schema"})
+
+    if schema_org.get("has_graph"):
+        issues["good"].append({"key": "has_graph_schema"})
+
+    if schema_org.get("has_authority_same_as"):
+        issues["good"].append({"key": "has_authority_same_as"})
+
     components = parsed.get("content_surface_size", {}).get("components", {})
     if components.get("list_blocks", 0) >= 2:
         issues["good"].append({"key": "good_lists"})
@@ -1381,11 +1393,17 @@ def _assess_eeat(parsed: dict) -> dict:
     if schema.get("has_article"):
         score += 1
         signals.append("article_schema")
+    if schema.get("has_graph"):
+        score += 1
+        signals.append("graph_connected_entities")
+    if schema.get("has_authority_same_as"):
+        score += 1
+        signals.append("authority_same_as")
 
     return {
         "author_name": author.get("name", ""),
         "score": score,
-        "max_score": 6,
+        "max_score": 8,
         "signals": signals,
     }
 
@@ -1426,19 +1444,24 @@ def _assess_image_quality(parsed: dict) -> dict:
 def _assess_llms_txt(
     fetch_result: FetchResult | None = None,
 ) -> dict:
-    """Assess llms.txt presence (experimental signal)."""
+    """Assess llms.txt presence — hygiene signal, not a ranking lever.
+
+    Weight reduced to 1 point (from 2) based on 2026 data:
+    97% of domains with llms.txt received zero crawler requests for it.
+    Google explicitly does not support it.
+    """
     if fetch_result is None:
         return {
             "found": False,
             "path": "",
             "score": 0,
-            "max_score": 2,
+            "max_score": 1,
         }
     return {
         "found": fetch_result.llms_txt_found,
         "path": fetch_result.llms_txt_path,
-        "score": 2 if fetch_result.llms_txt_found else 0,
-        "max_score": 2,
+        "score": 1 if fetch_result.llms_txt_found else 0,
+        "max_score": 1,
     }
 
 
