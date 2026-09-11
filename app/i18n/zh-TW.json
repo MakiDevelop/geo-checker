@@ -4,8 +4,8 @@
   "landing.hero.tagline": "讓 AI 正確理解並引用你的內容",
   "landing.hero.subtitle": "檢測你的頁面是否能被 ChatGPT、Claude、Perplexity 等 AI 系統正確引用",
   "landing.features.title": "我們為你檢測什麼",
-  "landing.feature1.title": "14 個 AI 爬蟲監測",
-  "landing.feature1.desc": "一次檢測 GPTBot、ClaudeBot、PerplexityBot、Google-Extended、Applebot、Meta AI 等 14 個 AI 爬蟲的存取狀態，含搜尋/訓練用途分類。",
+  "landing.feature1.title": "26 個 AI 爬蟲監測",
+  "landing.feature1.desc": "一次檢測 GPTBot、ClaudeBot、PerplexityBot、Google-Extended、Google-CloudVertexBot、Bingbot、Meta AI 等 26 個 AI 爬蟲的存取狀態，含搜尋/訓練/使用者觸發分類。",
   "landing.feature2.title": "GEO 信號全面分析",
   "landing.feature2.desc": "E-E-A-T 作者權威、內容新鮮度、Image Alt Text 品質、llms.txt 探測、Schema.org 結構化資料一次到位。",
   "landing.feature3.title": "AI 引用模擬器",
@@ -167,10 +167,10 @@
   "issues.good": "優良表現",
 
   "landing.how.title": "運作方式",
-  "landing.how.p1": "GEO Checker 從三個維度分析你的網頁：可存取性檢查 14 個主要 AI 爬蟲——包括 GPTBot（ChatGPT）、ClaudeBot（Anthropic）、PerplexityBot、Google-Extended（Gemini）、Applebot-Extended（Apple Intelligence）——能否透過 robots.txt 和 meta 標籤存取你的內容。",
+  "landing.how.p1": "GEO Checker 從三個維度分析你的網頁：可存取性檢查 26 個主要 AI 爬蟲——包括 GPTBot（ChatGPT）、ClaudeBot（Anthropic）、PerplexityBot、Google-Extended（Gemini）、Google-CloudVertexBot、Bingbot、Applebot-Extended（Apple Intelligence）——能否透過 robots.txt 和 meta 標籤存取你的內容。",
   "landing.how.p2": "結構性評估你的內容對 AI 理解的友好程度——標題層級、列表、表格、Schema.org 結構化資料（Article、FAQPage、HowTo）、以及 AI 搜尋引擎在生成回答時偏好的問答模式。",
   "landing.how.p3": "品質衡量與 AI 引用率相關的信號：E-E-A-T 作者權威、內容新鮮度（30 天內更新的頁面引用率高 3.2 倍）、可讀性、定義密度、以及可引用的事實和統計數據。",
-  "landing.how.p4": "分析完成後，行動工具包提供可直接複製貼上的程式碼：包含 14 個 AI 爬蟲規則的 robots.txt、根據你的內容自動生成的 JSON-LD Schema 標記、互動式修復清單、以及可嵌入網站的 AI-Ready 徽章。",
+  "landing.how.p4": "分析完成後，行動工具包提供可直接複製貼上的程式碼：包含 26 個 AI 爬蟲規則的 robots.txt、根據你的內容自動生成的 JSON-LD Schema 標記、互動式修復清單、以及可嵌入網站的 AI-Ready 徽章。",
 
   "landing.faq.title": "常見問題",
   "landing.faq.q1": "什麼是 GEO（Generative Engine Optimization）？",
@@ -178,7 +178,7 @@
   "landing.faq.q2": "GEO 和 SEO 有什麼不同？",
   "landing.faq.a2": "SEO 著重在搜尋結果排名。GEO 著重在被 AI 回答引用。關鍵差異：AI 重視結構化資料（Schema.org、JSON-LD）、清楚的定義、具體事實、和作者權威（E-E-A-T）。Google 排名第一的內容，如果缺少這些信號，ChatGPT 可能完全看不到。",
   "landing.faq.q3": "GEO Checker 分析什麼？",
-  "landing.faq.a3": "GEO Checker 從三個維度掃描你的頁面：可存取性（14 個 AI 爬蟲能否抓到你的內容？）、結構（標題、列表、Schema.org、問答模式）、品質（可讀性、作者權威、新鮮度、引用潛力）。還會模擬 AI 可能如何引用你的內容，並提供可直接複製貼上的修復程式碼。",
+  "landing.faq.a3": "GEO Checker 從三個維度掃描你的頁面：可存取性（26 個 AI 爬蟲能否抓到你的內容？）、結構（標題、列表、Schema.org、問答模式）、品質（可讀性、作者權威、新鮮度、引用潛力）。還會模擬 AI 可能如何引用你的內容，並提供可直接複製貼上的修復程式碼。",
 
   "toolkit.title": "行動工具包",
   "tooltip.action_toolkit": "根據分析結果產生的程式碼片段，複製貼上即可改善 GEO 分數",
@@ -217,7 +217,7 @@
   "toolkit.guide.reduce_pronouns": "將「這個」「它」「他們」替換為具體名詞。當 AI 從上下文中擷取單一句子時，模糊代名詞會失去意義。",
 
   "toolkit.robots.title": "robots.txt 產生器",
-  "toolkit.robots.tip": "將此內容複製到網站根目錄的 robots.txt，讓 14 個 AI 爬蟲都能正確存取你的內容。包含搜尋用和訓練用爬蟲的分類設定。",
+  "toolkit.robots.tip": "將此內容複製到網站根目錄的 robots.txt，讓 26 個 AI 爬蟲都能正確存取你的內容。包含搜尋用和訓練用爬蟲的分類設定。",
   "toolkit.copy_robots": "複製 robots.txt",
 
   "toolkit.schema.title": "JSON-LD Schema 產生器",

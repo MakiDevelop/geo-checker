@@ -38,6 +38,10 @@ _SEARCH_CRAWLERS = [
     {"ua": "YouBot", "vendor": "You.com", "note": "You.com AI search"},
     {"ua": "PhindBot", "vendor": "Phind", "note": "Developer AI search"},
     {"ua": "MistralAI-Index", "vendor": "Mistral", "note": "Mistral search indexing"},
+    {"ua": "Google-CloudVertexBot", "vendor": "Google",
+     "note": "Vertex AI Agents site-owner-requested crawl"},
+    {"ua": "Bingbot", "vendor": "Microsoft",
+     "note": "Bing / Copilot / AI Overviews retrieval"},
 ]
 
 _USER_TRIGGERED = [
@@ -49,6 +53,8 @@ _USER_TRIGGERED = [
      "note": "User-triggered; documented non-compliant"},
     {"ua": "MistralAI-User", "vendor": "Mistral",
      "note": "Fetches pages when users ask Le Chat"},
+    {"ua": "Meta-ExternalFetcher", "vendor": "Meta",
+     "note": "Fetches pages when users ask Meta AI"},
 ]
 
 _ROBOTS_BLIND_SPOTS = [

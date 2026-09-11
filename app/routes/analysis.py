@@ -638,7 +638,7 @@ def llms_txt() -> Response:
 
 ## Features
 
-- 22 AI crawler monitoring across 3 categories (Training, Search, User-Triggered)
+- 26 AI crawler monitoring across 3 categories (Training, Search, User-Triggered)
 - E-E-A-T author authority signals
 - Content freshness detection
 - llms.txt standard detection

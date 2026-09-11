@@ -1,4 +1,4 @@
-"""GEO rule checks (v4.1.0) - 22 AI crawlers, three-category model, non-compliance warnings."""
+"""GEO rule checks (v4.1.1) - 26 AI crawlers, three-category model, non-compliance warnings."""
 from __future__ import annotations
 
 import re
@@ -116,6 +116,18 @@ _AGENT_MAP: dict[str, dict[str, str]] = {
         "purpose": "training", "category": "training",
         "compliance": "non-compliant",
     },
+    "google-cloudvertexbot": {
+        "display": "Google-CloudVertexBot", "vendor": "Google",
+        "purpose": "search", "category": "search",
+    },
+    "meta-externalfetcher": {
+        "display": "Meta-ExternalFetcher", "vendor": "Meta",
+        "purpose": "search", "category": "user-triggered",
+    },
+    "bingbot": {
+        "display": "Bingbot", "vendor": "Microsoft",
+        "purpose": "search", "category": "search",
+    },
 }
 
 # Core crawlers that affect the main GEO score
@@ -142,6 +154,8 @@ _LEGACY_KEY_MAP = {
     "mistralai-user": "mistralai_user",
     "mistralai-index": "mistralai_index",
     "cohere-ai": "cohere_ai",
+    "google-cloudvertexbot": "google_cloudvertexbot",
+    "meta-externalfetcher": "meta_externalfetcher",
 }
 
 

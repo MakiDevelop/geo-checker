@@ -22,7 +22,7 @@ GEO Checker tells you exactly what to fix.
 ## Features
 
 ### Core Analysis
-- **14 AI Crawler Detection** — GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot, Meta AI, and 8 more
+- **26 AI Crawler Detection** — GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Google-CloudVertexBot, Bingbot, Meta AI, and more
 - **GEO Signal Analysis** — E-E-A-T authority, content freshness, image alt text quality, llms.txt, Schema.org structured data
 - **AI Citation Simulator** — Preview how AI engines would summarize and cite your content
 - **GEO Score Card** — Shareable visual score card (1200x630 OG image)
