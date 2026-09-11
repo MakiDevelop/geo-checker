@@ -1,5 +1,7 @@
 # GEO Checker
 
+> **Status (2026-09-11):** Live product at [gc.ranran.tw](https://gc.ranran.tw). This repo tracks that service. File issues for live bugs; this is not an OSS growth project.
+
 > SEO helps content get found. GEO ensures content gets interpreted correctly.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
