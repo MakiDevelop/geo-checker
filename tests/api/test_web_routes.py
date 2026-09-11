@@ -223,6 +223,42 @@ def test_history_page_uses_sqlite_records(
     assert f"/results/{result_id}" in response.text
 
 
+def test_history_page_skips_legacy_list_geo_json(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "geo_checker.db"
+    results_dir = tmp_path / "results"
+    good_id = "d" * 32
+    url = "https://example.com/good-history"
+
+    _write_result_file(results_dir, good_id, _sample_ui_result(url, score=70, grade="B"))
+    results_dir.mkdir(parents=True, exist_ok=True)
+    (results_dir / "ab74d347217c447b9cddc52611d4b4f8.json").write_text(
+        json.dumps(
+            {
+                "id": "ab74d347217c447b9cddc52611d4b4f8",
+                "target": "https://example.com",
+                "status": "done",
+                "created_at": "2026-01-10T07:31:34.832216+00:00",
+                "seo": [],
+                "geo": [],
+                "ai_summary": "",
+            }
+        )
+    )
+
+    monkeypatch.setattr(analysis_routes, "RESULTS_DIR", results_dir)
+    monkeypatch.setattr(analysis_routes, "get_conn", lambda: get_conn(db_path))
+
+    response = client.get("/history")
+
+    assert response.status_code == 200
+    assert url in response.text
+    assert f"/results/{good_id}" in response.text
+
+
 def test_history_page_falls_back_to_json_results(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

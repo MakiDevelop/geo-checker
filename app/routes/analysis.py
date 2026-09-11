@@ -186,18 +186,23 @@ def _parse_timestamp(value: str) -> datetime | None:
     return parsed
 
 
+def _as_mapping(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
 def _extract_result_score(data: dict) -> int | None:
-    geo_score = data.get("geo", {}).get("geo_score", {})
+    geo_score = _as_mapping(_as_mapping(data.get("geo")).get("geo_score"))
     if geo_score.get("total") is not None:
         return int(geo_score.get("total", 0))
-    surface = data.get("content_surface_size", {})
+    surface = _as_mapping(data.get("content_surface_size"))
     if surface.get("score") is not None:
         return int(surface.get("score", 0))
     return None
 
 
 def _extract_result_grade(data: dict) -> str:
-    return str(data.get("geo", {}).get("geo_score", {}).get("grade", ""))
+    geo_score = _as_mapping(_as_mapping(data.get("geo")).get("geo_score"))
+    return str(geo_score.get("grade", ""))
 
 
 def _load_json_result_records() -> list[dict]:
@@ -208,6 +213,8 @@ def _load_json_result_records() -> list[dict]:
         try:
             data = json.loads(path.read_text())
         except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
             continue
 
         scanned_at = str(data.get("created_at", ""))
