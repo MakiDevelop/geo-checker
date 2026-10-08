@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import threading
+import unicodedata
 from collections.abc import Iterable
 from urllib.parse import urljoin, urlparse
 
@@ -176,10 +177,28 @@ def _clean_text(text: str) -> str:
     return " ".join(text.split())
 
 
+# Han ideographs + Japanese kana: no spaces between words, so each character
+# counts as one word. Hangul is excluded because Korean separates words with spaces.
+_CJK_CHAR_RE = re.compile(
+    r"[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ"
+    r"\U00020000-\U0003134f]"
+)
+
+
 def _word_count(text: str) -> int:
     if not text:
         return 0
-    return len([word for word in text.split() if word])
+    # Only letters count: keeps "ー" (Lm), drops punctuation such as "・" (Po).
+    cjk_chars = sum(
+        1 for ch in _CJK_CHAR_RE.findall(text)
+        if unicodedata.category(ch).startswith("L")
+    )
+    # Skip punctuation-only tokens such as "。" left between CJK characters.
+    other_words = [
+        token for token in _CJK_CHAR_RE.sub(" ", text).split()
+        if any(ch.isalnum() for ch in token)
+    ]
+    return cjk_chars + len(other_words)
 
 
 def _is_definition_paragraph(text: str) -> bool:
@@ -798,7 +817,7 @@ def _extract_images(soup: BeautifulSoup) -> dict:
     with_alt = sum(1 for img in images if img["alt"].strip())
     descriptive = sum(
         1 for img in images
-        if img["alt"].strip() and len(img["alt"].split()) >= 3
+        if img["alt"].strip() and _word_count(img["alt"]) >= 3
     )
 
     return {

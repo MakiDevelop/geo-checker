@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
+from src.parser.content_parser import _word_count
+
 if TYPE_CHECKING:
     from src.fetcher.html_fetcher import FetchResult
 
@@ -701,7 +703,7 @@ def _assess_first_paragraph(paragraphs: list[str]) -> dict:
         }
 
     first_para = paragraphs[0].strip()
-    word_count = len(first_para.split())
+    word_count = _word_count(first_para)
 
     # Check for strong opening patterns
     has_strong_opening = any(p.search(first_para) for p in _STRONG_OPENING_PATTERNS)

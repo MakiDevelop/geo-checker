@@ -232,3 +232,51 @@ class TestSchemaOrgExtraction:
             or "types_found" not in schema
             or len(schema.get("types_found", [])) == 0
         )
+
+
+class TestWordCount:
+    """Tests for CJK-aware word counting."""
+
+    def test_english_split_by_whitespace(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("GEO checker for AI search") == 5
+
+    def test_chinese_counts_each_character(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("千葉熊工作室") == 6
+
+    def test_mixed_chinese_and_english(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("導入 Odoo ERP 系統") == 6
+
+    def test_japanese_kana_counts_each_character(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("ひらがなカタカナ") == 8
+
+    def test_korean_uses_whitespace(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("한국어 단어 세개") == 3
+
+    def test_middle_dot_not_counted(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("猫・犬") == 2
+        assert _word_count("・・・") == 0
+
+    def test_long_vowel_mark_counted(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("カレー") == 3
+
+    def test_halfwidth_katakana_and_supplementary_han(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("ｶﾀｶﾅ") == 4
+        assert _word_count("𠮷𠮷𠮷") == 3
+
+    def test_empty(self):
+        from src.parser.content_parser import _word_count
+        assert _word_count("") == 0
+
+    def test_chinese_first_paragraph_scored_by_characters(self):
+        from src.geo.geo_checker import _assess_first_paragraph
+        para = "千葉熊工作室提供企業導入服務。" * 6  # 90 characters, no spaces
+        result = _assess_first_paragraph([para])
+        assert result["first_paragraph_length"] == 84
